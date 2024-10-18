@@ -1400,7 +1400,7 @@ func (env Environment) Close() {
 }
 
 // NewHelmEnvironment creates Helm chart archives and starts either and oci or yaml based Helm repository.
-func NewHelmEnvironment(t *testing.T, opts ...Option) (*Environment, error) {
+func NewHelmEnvironment(t testing.TB, opts ...Option) (*Environment, error) {
 	options := &options{
 		enabled:         false,
 		private:         false,
@@ -1628,7 +1628,7 @@ func NewHelmEnvironment(t *testing.T, opts ...Option) (*Environment, error) {
 	}, nil
 }
 
-func createChartV1Archive(t *testing.T) (*os.File, error) {
+func createChartV1Archive(t testing.TB) (*os.File, error) {
 	version := "1.0.0"
 	archive, err := os.CreateTemp(t.TempDir(), fmt.Sprintf("*-test-%s.tgz", version))
 	if err != nil {
@@ -1643,7 +1643,7 @@ func createChartV1Archive(t *testing.T) (*os.File, error) {
 	return createChartArchive(archive, chartDir)
 }
 
-func createChartV2Archive(t *testing.T) (*os.File, error) {
+func createChartV2Archive(t testing.TB) (*os.File, error) {
 	version := "2.0.0"
 	archive, err := os.CreateTemp(t.TempDir(), fmt.Sprintf("*-test-%s.tgz", version))
 	if err != nil {
@@ -1658,7 +1658,7 @@ func createChartV2Archive(t *testing.T) (*os.File, error) {
 	return createChartArchive(archive, chartDir)
 }
 
-func createChartV3Archive(t *testing.T) (*os.File, error) {
+func createChartV3Archive(t testing.TB) (*os.File, error) {
 	version := "3.0.0"
 	archive, err := os.CreateTemp(t.TempDir(), fmt.Sprintf("*-test-%s.tgz", version))
 	if err != nil {

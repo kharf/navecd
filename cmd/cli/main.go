@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"runtime"
 
 	"github.com/kharf/navecd/pkg/component"
 	"github.com/kharf/navecd/pkg/kube"
@@ -101,12 +100,23 @@ func (builder VerifyCommandBuilder) Build() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			projectManager := project.NewManager(
 				component.NewBuilder(),
-				runtime.GOMAXPROCS(0),
+				-1,
 			)
-			_, err = projectManager.Load(cwd)
-			return err
+
+			instance, err := projectManager.Load(cwd)
+			if err != nil {
+				return err
+			}
+
+			_, err = instance.Dag.TopologicalSort()
+			if err != nil {
+				return err
+			}
+
+			return nil
 		},
 	}
 	return cmd

@@ -25,8 +25,6 @@ import (
 	"syscall"
 	"time"
 
-	goRuntime "runtime"
-
 	"golang.org/x/sync/errgroup"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
@@ -327,9 +325,10 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 
 	componentBuilder := component.NewBuilder()
 
-	maxProcs := goRuntime.GOMAXPROCS(0)
+	// -1 means no limit. According to benchmarks this config had the best performance for all cpu quotas tested (1, 2, 4 cpus).
+	workerSize := -1
 
-	projectManager := project.NewManager(componentBuilder, maxProcs)
+	projectManager := project.NewManager(componentBuilder, workerSize)
 
 	helmKube.ManagedFieldsManager = controllerName
 
@@ -379,7 +378,7 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 			RepositoryManager:     vcs.NewRepositoryManager(namespace, kubeDynamicClient.DynamicClient(), log),
 			ProjectManager:        projectManager,
 			FieldManager:          controllerName,
-			WorkerPoolSize:        maxProcs,
+			WorkerPoolSize:        workerSize,
 			InsecureSkipTLSverify: opts.InsecureSkipTLSverify,
 			PlainHTTP:             opts.PlainHTTP,
 			CacheDir:              os.TempDir(),

@@ -224,10 +224,10 @@ _{{.Shard}}LeaderRoleName: "{{.Shard}}-leader-election"
 							}
 							resources: {
 								limits: {
-									memory: "1.5Gi"
+									memory: "250Mi"
 								}
 								requests: {
-									memory: "1.5Gi"
+									memory: "250Mi"
 									cpu:    "500m"
 								}
 							}

@@ -161,6 +161,7 @@ func (reconciler *Reconciler) Reconcile(
 		ChartReconciler:   chartReconciler,
 		InventoryInstance: inventoryInstance,
 		FieldManager:      reconciler.FieldManager,
+		WorkerPoolSize:    reconciler.WorkerPoolSize,
 	}
 
 	repository, err := reconciler.RepositoryManager.Load(
@@ -184,7 +185,8 @@ func (reconciler *Reconciler) Reconcile(
 			err,
 			"Unable to pull gitops project repository",
 		)
-		return nil, err
+
+		reconciledCommitHash = gProject.Status.Revision.CommitHash
 	}
 
 	projectInstance, err := reconciler.ProjectManager.Load(repositoryDir)
@@ -248,7 +250,7 @@ func (reconciler *Reconciler) Reconcile(
 		return nil, err
 	}
 
-	if err := reconciler.reconcileComponents(ctx, componentReconciler, componentInstances); err != nil {
+	if err := componentReconciler.Reconcile(ctx, componentInstances); err != nil {
 		log.Error(
 			err,
 			"Unable to reconcile components",
@@ -261,35 +263,4 @@ func (reconciler *Reconciler) Reconcile(
 		CommitHash:          reconciledCommitHash,
 		LocalRepositoryPath: repositoryDir,
 	}, nil
-}
-
-func (reconciler *Reconciler) reconcileComponents(
-	ctx context.Context,
-	componentReconciler component.Reconciler,
-	componentInstances []component.Instance,
-) error {
-	eg := errgroup.Group{}
-	eg.SetLimit(reconciler.WorkerPoolSize)
-	for _, instance := range componentInstances {
-		// TODO: implement SCC decomposition for better concurrency/parallelism
-		if len(instance.GetDependencies()) == 0 {
-			eg.Go(func() error {
-				return componentReconciler.Reconcile(
-					ctx,
-					instance,
-				)
-			})
-		} else {
-			if err := eg.Wait(); err != nil {
-				return err
-			}
-			if err := componentReconciler.Reconcile(
-				ctx,
-				instance,
-			); err != nil {
-				return err
-			}
-		}
-	}
-	return eg.Wait()
 }

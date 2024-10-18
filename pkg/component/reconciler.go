@@ -23,6 +23,7 @@ import (
 	"github.com/kharf/navecd/pkg/helm"
 	"github.com/kharf/navecd/pkg/inventory"
 	"github.com/kharf/navecd/pkg/kube"
+	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -48,9 +49,105 @@ type Reconciler struct {
 
 	// Managers identify distinct workflows that are modifying the object (especially useful on conflicts!),
 	FieldManager string
+
+	// Defines the concurrency level of Navecd operations.
+	WorkerPoolSize int
 }
 
 func (reconciler *Reconciler) Reconcile(
+	ctx context.Context,
+	instances []Instance,
+) error {
+	eg := errgroup.Group{}
+	eg.SetLimit(reconciler.WorkerPoolSize)
+
+	errChan := make(chan string, 10)
+
+	go func() {
+		for {
+			select {
+			case errorneousComponent := <-errChan:
+
+			}
+		}
+
+	}()
+
+	instanceLayers := Layer(instances)
+	for _, layer := range instanceLayers {
+		for _, instance := range layer.Components {
+			eg.Go(func() error {
+				err := reconciler.reconcile(
+					ctx,
+					instance,
+				)
+				if err != nil {
+					reconciler.Log.Error(err,
+						"Unable to reconcile component",
+						"id",
+						instance.GetID(),
+					)
+					errChan <- instance.GetID()
+				}
+
+				return nil
+			})
+		}
+
+		if err := eg.Wait(); err != nil {
+			return err
+		}
+	}
+	return eg.Wait()
+}
+
+func (reconciler *Reconciler) ReconcileOld(
+	ctx context.Context,
+	instances []Instance,
+) error {
+	eg := errgroup.Group{}
+	eg.SetLimit(reconciler.WorkerPoolSize)
+	for _, instance := range instances {
+		// TODO: implement SCC decomposition for better concurrency/parallelism
+		if len(instance.GetDependencies()) == 0 {
+			eg.Go(func() error {
+				return reconciler.reconcile(
+					ctx,
+					instance,
+				)
+			})
+		} else {
+			if err := eg.Wait(); err != nil {
+				return err
+			}
+			if err := reconciler.reconcile(
+				ctx,
+				instance,
+			); err != nil {
+				return err
+			}
+		}
+	}
+	return eg.Wait()
+}
+
+func (reconciler *Reconciler) ReconcileSeq(
+	ctx context.Context,
+	instances []Instance,
+) error {
+	for _, instance := range instances {
+		if err := reconciler.reconcile(
+			ctx,
+			instance,
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (reconciler *Reconciler) reconcile(
 	ctx context.Context,
 	instance Instance,
 ) error {

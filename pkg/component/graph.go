@@ -78,24 +78,33 @@ func (dag *DependencyGraph) TopologicalSort() ([]Instance, error) {
 		if _, found := inProcessing[nodeID]; found {
 			return fmt.Errorf("%w for %s", ErrCyclicDependency, nodeID)
 		}
+
 		if _, found := visited[nodeID]; found {
 			return nil
 		}
+
 		inProcessing[nodeID] = struct{}{}
+
 		node := dag.set[nodeID]
 		if node == nil {
 			return fmt.Errorf("%w: %s not found in dependency graph", ErrUnknownComponentID, nodeID)
 		}
+
 		for _, depNode := range node.GetDependencies() {
 			if err := walk(depNode); err != nil {
 				return err
 			}
 		}
+
 		delete(inProcessing, nodeID)
+
 		visited[nodeID] = struct{}{}
+
 		result = append(result, node)
+
 		return nil
 	}
+
 	for node := range dag.set {
 		if err := walk(node); err != nil {
 			return nil, err

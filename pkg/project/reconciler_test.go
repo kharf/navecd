@@ -929,6 +929,152 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 	assert.Assert(t, inventoryStorage.HasItem(nsManifest))
 }
 
+func TestReconciler_Reconcile_GitPullError(t *testing.T) {
+	ctx := context.Background()
+	dnsServer, err := dnstest.NewDNSServer()
+	assert.NilError(t, err)
+	defer dnsServer.Close()
+
+	registryPath := t.TempDir()
+
+	cueModuleRegistry, err := ocitest.StartCUERegistry(registryPath)
+	assert.NilError(t, err)
+	defer cueModuleRegistry.Close()
+
+	env := projecttest.InitTestEnvironment(
+		t,
+		[]byte(useMiniTemplate()),
+	)
+
+	kubernetes := kubetest.StartKubetestEnv(t, env.Log, kubetest.WithEnabled(true))
+	defer kubernetes.Stop()
+	projectManager := project.NewManager(component.NewBuilder(), runtime.GOMAXPROCS(0))
+
+	scheduler, err := gocron.NewScheduler()
+	assert.NilError(t, err)
+	quitChan := make(chan struct{}, 1)
+	schedulerEg := &errgroup.Group{}
+	schedulerEg.SetLimit(1)
+	defer func() {
+		quitChan <- struct{}{}
+		_ = scheduler.Shutdown()
+	}()
+
+	reconciler := project.Reconciler{
+		KubeConfig:            kubernetes.ControlPlane.Config,
+		ComponentBuilder:      component.NewBuilder(),
+		RepositoryManager:     kubernetes.RepositoryManager,
+		ProjectManager:        projectManager,
+		Log:                   env.Log,
+		FieldManager:          "controller",
+		WorkerPoolSize:        runtime.GOMAXPROCS(0),
+		InsecureSkipTLSverify: true,
+		CacheDir:              env.TestRoot,
+		Scheduler:             scheduler,
+		SchedulerQuitChan:     quitChan,
+		SchedulerErrGroup:     schedulerEg,
+	}
+
+	suspend := false
+	gProject := gitops.GitOpsProject{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: "gitops.navecd.io/v1",
+			Kind:       "GitOpsProject",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test",
+			Namespace: "tenant",
+			UID:       types.UID(env.TestRoot),
+		},
+		Spec: gitops.GitOpsProjectSpec{
+			URL:                 env.TestProject,
+			Branch:              "main",
+			PullIntervalSeconds: 5,
+			Suspend:             &suspend,
+		},
+	}
+
+	namespace := corev1.Namespace{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: "",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name: "tenant",
+		},
+	}
+
+	err = kubernetes.TestKubeClient.Create(ctx, &namespace)
+	assert.NilError(t, err)
+
+	namespace = corev1.Namespace{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: "",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name: "monitoring",
+		},
+	}
+
+	err = kubernetes.TestKubeClient.Create(ctx, &namespace)
+	assert.NilError(t, err)
+
+	serviceAccount := corev1.ServiceAccount{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: "",
+			Kind:       "ServiceAccount",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "mysa",
+			Namespace: "tenant",
+		},
+	}
+
+	err = kubernetes.TestKubeClient.Create(ctx, &serviceAccount)
+	assert.NilError(t, err)
+
+	result, err := reconciler.Reconcile(ctx, gProject)
+	assert.NilError(t, err)
+	assert.Equal(t, result.Suspended, false)
+
+	nsName := "toola"
+
+	var ns corev1.Namespace
+	err = kubernetes.TestKubeClient.Get(
+		ctx,
+		types.NamespacedName{Name: nsName},
+		&ns,
+	)
+	assert.NilError(t, err)
+	assert.Equal(t, ns.Name, nsName)
+
+	inventoryInstance := &inventory.Instance{
+		// /inventory is mounted as volume.
+		Path: filepath.Join("/inventory", string(gProject.GetUID())),
+	}
+	inventoryStorage, err := inventoryInstance.Load()
+	assert.NilError(t, err)
+
+	invComponents := inventoryStorage.Items()
+	assert.Assert(t, len(invComponents) == 1)
+	nsManifest := &inventory.ManifestItem{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+		},
+		Name: ns.Name,
+		ID:   fmt.Sprintf("%s_%s__Namespace", ns.Name, ns.Namespace),
+	}
+	assert.Assert(t, inventoryStorage.HasItem(nsManifest))
+
+	err = os.RemoveAll(env.TestProject)
+	assert.NilError(t, err)
+
+	result, err = reconciler.Reconcile(ctx, gProject)
+	assert.NilError(t, err)
+}
+
 type workloadIdentityTemplateData struct {
 	Name              string
 	HelmRepoURL       string
