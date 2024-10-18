@@ -59,7 +59,7 @@ func (t Bench) run(ctx context.Context, request stepRequest) (*stepResult, error
 			WithExec([]string{"go", "test", "-run=^$", "-bench=.", TestAllArg})
 	} else {
 		test = prepareBench.
-			WithExec([]string{"go", "test", "-run=^$", "-count=5", "-cpu=1,2,4,8,16", "-bench=" + t.ID, "./" + t.Package})
+			WithExec([]string{"go", "test", "-run=^$", "-count=5", "-cpu=1,2,4", "-bench=" + t.ID, "./" + t.Package})
 	}
 	return &stepResult{
 		container: test.WithWorkdir(workDir),

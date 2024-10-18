@@ -594,7 +594,7 @@ func (c *ChartReconciler) install(
 	install.PlainHTTP = c.PlainHTTP
 	install.Wait = false
 	install.ReleaseName = desiredRelease.Name
-	install.CreateNamespace = true
+	install.CreateNamespace = false
 	install.Namespace = desiredRelease.Namespace
 	if desiredRelease.Patches != nil {
 		install.PostRenderer = &PostRenderer{

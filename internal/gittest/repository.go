@@ -358,8 +358,10 @@ func MockGitProvider(
 }
 
 type FakeRepository struct {
-	mu       sync.Mutex
-	RepoPath string
+	mu sync.Mutex
+
+	RepoPath  string
+	PullError error
 
 	CommitsMade []string
 }
@@ -393,6 +395,10 @@ func (f *FakeRepository) Path() string {
 }
 
 func (f *FakeRepository) Pull() (string, error) {
+	if f.PullError != nil {
+		return "", f.PullError
+	}
+
 	return "hash", nil
 }
 

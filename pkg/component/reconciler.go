@@ -23,6 +23,7 @@ import (
 	"github.com/kharf/navecd/pkg/helm"
 	"github.com/kharf/navecd/pkg/inventory"
 	"github.com/kharf/navecd/pkg/kube"
+	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -48,9 +49,105 @@ type Reconciler struct {
 
 	// Managers identify distinct workflows that are modifying the object (especially useful on conflicts!),
 	FieldManager string
+
+	// Limit of concurrent reconciliations.
+	WorkerPoolSize int
 }
 
 func (reconciler *Reconciler) Reconcile(
+	ctx context.Context,
+	instances []Instance,
+) error {
+	instanceLayers := Layer(instances)
+
+	var firstError error
+	var prevLayerErrComponents map[string]struct{}
+
+	for _, layer := range instanceLayers {
+		var err error
+		prevLayerErrComponents, err = reconciler.reconcileLayer(ctx, layer, prevLayerErrComponents)
+		if err != nil && firstError == nil {
+			firstError = err
+		}
+	}
+
+	return firstError
+}
+
+func (reconciler *Reconciler) reconcileLayer(
+	ctx context.Context,
+	layer InstanceLayer,
+	prevLayerErrComponents map[string]struct{},
+) (map[string]struct{}, error) {
+	recEG := errgroup.Group{}
+	recEG.SetLimit(reconciler.WorkerPoolSize)
+
+	errChan := make(chan string)
+	errComponents := make(map[string]struct{}, len(layer.Components))
+
+	errComponentsEG := errgroup.Group{}
+	errComponentsEG.Go(func() error {
+		for component := range errChan {
+			errComponents[component] = struct{}{}
+		}
+
+		return nil
+	})
+
+	if len(prevLayerErrComponents) != 0 {
+		for _, instance := range layer.Components {
+			recEG.Go(func() error {
+				for _, dep := range instance.GetDependencies() {
+					if _, found := prevLayerErrComponents[dep]; found {
+						reconciler.Log.V(0).
+							Info("Errorneous dependency. Skipping component", "id", instance.GetID())
+						return nil
+					}
+				}
+
+				if err := reconciler.reconcile(ctx, instance); err != nil {
+					reconciler.Log.Error(err,
+						"Unable to reconcile component",
+						"id",
+						instance.GetID(),
+					)
+
+					errChan <- instance.GetID()
+					return err
+				}
+
+				return nil
+			})
+		}
+	} else {
+		for _, instance := range layer.Components {
+			recEG.Go(func() error {
+				if err := reconciler.reconcile(ctx, instance); err != nil {
+					reconciler.Log.Error(err,
+						"Unable to reconcile component",
+						"id",
+						instance.GetID(),
+					)
+
+					errChan <- instance.GetID()
+					return err
+				}
+
+				return nil
+			})
+		}
+	}
+
+	recErr := recEG.Wait()
+
+	close(errChan)
+
+	_ = errComponentsEG.Wait()
+
+	return errComponents, recErr
+}
+
+func (reconciler *Reconciler) reconcile(
 	ctx context.Context,
 	instance Instance,
 ) error {
