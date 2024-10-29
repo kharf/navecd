@@ -188,7 +188,6 @@ func NewTLSRegistry(private bool, cloudProviderID cloud.ProviderID) (*Registry, 
 	httpsServer.Listener = listener
 	httpsServer.StartTLS()
 
-	fmt.Println("TLS Registry listening on", httpsServer.URL)
 	client := httpsServer.Client()
 
 	transport := &http.Transport{
