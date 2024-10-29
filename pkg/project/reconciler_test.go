@@ -43,6 +43,7 @@ import (
 	"github.com/kharf/navecd/pkg/inventory"
 	"github.com/kharf/navecd/pkg/kube"
 	"github.com/kharf/navecd/pkg/project"
+	"github.com/kharf/navecd/pkg/version"
 	"github.com/opencontainers/go-digest"
 	"golang.org/x/sync/errgroup"
 	"gotest.tools/v3/assert"
@@ -421,6 +422,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		CacheDir:              env.TestRoot,
 		Scheduler:             scheduler,
 		SchedulerQuitChan:     quitChan,
+		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
 		SchedulerErrGroup:     schedulerEg,
 	}
 
@@ -775,6 +777,7 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 		CacheDir:              env.TestRoot,
 		Scheduler:             scheduler,
 		SchedulerQuitChan:     quitChan,
+		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
 		SchedulerErrGroup:     schedulerEg,
 	}
 
@@ -971,6 +974,7 @@ func TestReconciler_Reconcile_GitPullError(t *testing.T) {
 		CacheDir:              env.TestRoot,
 		Scheduler:             scheduler,
 		SchedulerQuitChan:     quitChan,
+		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
 		SchedulerErrGroup:     schedulerEg,
 	}
 
@@ -1120,6 +1124,7 @@ func TestReconciler_Reconcile_ComponentError(t *testing.T) {
 		CacheDir:              env.TestRoot,
 		Scheduler:             scheduler,
 		SchedulerQuitChan:     quitChan,
+		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
 		SchedulerErrGroup:     schedulerEg,
 	}
 
@@ -1356,6 +1361,7 @@ func TestReconciler_Reconcile_WorkloadIdentity(t *testing.T) {
 		CacheDir:              env.TestRoot,
 		Scheduler:             scheduler,
 		SchedulerQuitChan:     quitChan,
+		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
 		SchedulerErrGroup:     schedulerEg,
 	}
 
@@ -1639,6 +1645,7 @@ func TestReconciler_Reconcile_Conflict(t *testing.T) {
 		CacheDir:              env.TestRoot,
 		Scheduler:             scheduler,
 		SchedulerQuitChan:     quitChan,
+		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
 		SchedulerErrGroup:     schedulerEg,
 	}
 
@@ -1832,6 +1839,7 @@ func TestReconciler_Reconcile_IgnoreConflicts(t *testing.T) {
 		CacheDir:              env.TestRoot,
 		Scheduler:             scheduler,
 		SchedulerQuitChan:     quitChan,
+		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
 		SchedulerErrGroup:     schedulerEg,
 	}
 

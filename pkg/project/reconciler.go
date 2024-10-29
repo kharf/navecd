@@ -70,9 +70,10 @@ type Reconciler struct {
 	Namespace string
 
 	// Cron scheduler running in the background scanning for image updates.
-	Scheduler         gocron.Scheduler
-	SchedulerQuitChan chan struct{}
-	SchedulerErrGroup *errgroup.Group
+	Scheduler           gocron.Scheduler
+	SchedulerQuitChan   chan struct{}
+	SchedulerUpdateChan chan version.AvailableUpdate
+	SchedulerErrGroup   *errgroup.Group
 }
 
 // ReconcileResult reports the outcome and metadata of a reconciliation.
@@ -233,8 +234,9 @@ func (reconciler *Reconciler) Reconcile(
 				Repository: updateRepository,
 				Branch:     gProject.Spec.Branch,
 			},
-			QuitChan: reconciler.SchedulerQuitChan,
-			ErrGroup: reconciler.SchedulerErrGroup,
+			QuitChan:   reconciler.SchedulerQuitChan,
+			UpdateChan: reconciler.SchedulerUpdateChan,
+			ErrGroup:   reconciler.SchedulerErrGroup,
 		}
 
 		if _, err := updateScheduler.Schedule(ctx, projectInstance.UpdateInstructions); err != nil {

@@ -51,6 +51,7 @@ import (
 	"github.com/kharf/navecd/pkg/kube"
 	"github.com/kharf/navecd/pkg/project"
 	"github.com/kharf/navecd/pkg/vcs"
+	"github.com/kharf/navecd/pkg/version"
 	"github.com/prometheus/client_golang/prometheus"
 	helmKube "helm.sh/helm/v3/pkg/kube"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -355,6 +356,7 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 	}
 
 	schedulerQuitChan := make(chan struct{}, 1)
+	schedulerUpdateChan := make(chan version.AvailableUpdate, 50)
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	schedulerEg := &errgroup.Group{}
@@ -385,6 +387,7 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 			Namespace:             namespace,
 			Scheduler:             scheduler,
 			SchedulerQuitChan:     schedulerQuitChan,
+			SchedulerUpdateChan:   schedulerUpdateChan,
 			SchedulerErrGroup:     schedulerEg,
 		},
 	}).SetupWithManager(mgr, controllerName); err != nil {

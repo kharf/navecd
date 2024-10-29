@@ -204,8 +204,9 @@ func runScheduleTestCase(t *testing.T, ctx context.Context, tc scheduleTestCase)
 			Repository: repository,
 			Branch:     "main",
 		},
-		QuitChan: quitChan,
-		ErrGroup: schedulerEg,
+		QuitChan:   quitChan,
+		UpdateChan: make(chan version.AvailableUpdate, 10),
+		ErrGroup:   schedulerEg,
 	}
 
 	jobCount, err := updateScheduler.Schedule(ctx, updateInstructions)

@@ -33,16 +33,15 @@ type UpdateScheduler struct {
 
 	Scheduler gocron.Scheduler
 
-	ErrGroup *errgroup.Group
-	QuitChan chan struct{}
+	ErrGroup   *errgroup.Group
+	QuitChan   chan struct{}
+	UpdateChan chan AvailableUpdate
 }
 
 func (scheduler *UpdateScheduler) Schedule(
 	ctx context.Context,
 	updateInstructions []UpdateInstruction,
 ) (int, error) {
-	updateChan := make(chan AvailableUpdate, len(updateInstructions))
-
 	for _, job := range scheduler.Scheduler.Jobs() {
 		if !haveJobForInstructions(job, updateInstructions) {
 			scheduler.Log.V(1).Info("Removing cron job", "name", job.Name())
@@ -58,7 +57,7 @@ func (scheduler *UpdateScheduler) Schedule(
 			scheduler.scan,
 			ctx,
 			instruction,
-			updateChan,
+			scheduler.UpdateChan,
 		)
 
 		if err := scheduler.upsertJob(instruction, cronJob, task); err != nil {
@@ -66,11 +65,10 @@ func (scheduler *UpdateScheduler) Schedule(
 		}
 	}
 
-	// that will generate more and more goroutines
 	_ = scheduler.ErrGroup.TryGo(func() error {
 		for {
 			select {
-			case availableUpdate := <-updateChan:
+			case availableUpdate := <-scheduler.UpdateChan:
 				_, err := scheduler.Updater.Repository.Pull()
 				if err != nil {
 					scheduler.Log.Error(
@@ -220,8 +218,4 @@ func (scheduler *UpdateScheduler) scan(
 	if hasUpdate {
 		updateChan <- *availableUpdate
 	}
-}
-
-func Listen() {
-
 }
