@@ -36,7 +36,7 @@ func (g apigen) name() string {
 }
 
 // when changed, the renovate customManager has also to be updated.
-var controllerGenDep = "sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.4"
+var controllerGenDep = "sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5"
 
 // when changed, the renovate customManager has also to be updated.
 var cueDep = "cuelang.org/go/cmd/cue@v0.10.1"
