@@ -2,7 +2,7 @@ module github.com/kharf/navecd/build
 
 go 1.23.0
 
-require dagger.io/dagger v0.13.7
+require dagger.io/dagger v0.14.0
 
 require (
 	github.com/99designs/gqlgen v0.17.55 // indirect
