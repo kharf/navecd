@@ -56,7 +56,7 @@ func RunWith(steps ...step) error {
 	defer client.Close()
 	goCache := client.CacheVolume("go")
 	base := client.Container().
-		From("golang:1.23.2-alpine").
+		From("golang:1.23.3-alpine").
 		WithExec([]string{"apk", "add", "--no-cache", "git"}).
 		WithExec([]string{"apk", "add", "--no-cache", "openssh-client"}).
 		WithExec([]string{"apk", "add", "--no-cache", "curl"}).
