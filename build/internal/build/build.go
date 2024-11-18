@@ -71,7 +71,7 @@ func (p Publish) name() string {
 }
 
 // when changed, the renovate customManager has also to be updated.
-var goreleaserDep = "github.com/goreleaser/goreleaser/v2@v2.4.5"
+var goreleaserDep = "github.com/goreleaser/goreleaser/v2@v2.4.6"
 
 func (p Publish) run(ctx context.Context, request stepRequest) (*stepResult, error) {
 	reqVersion := p.Version
