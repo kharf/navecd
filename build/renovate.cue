@@ -76,10 +76,25 @@ customManagers: [
 		fileMatch: [
 			"^(.*?).cue$",
 		]
-		matchStrings: ["uses: \"(?<depName>.*?)@(?<currentValue>.*?)\""]
+		matchStrings: [
+			"uses: \"(?<depName>.*?)@(?<currentValue>.*?)\"",
+		]
 		datasourceTemplate: "github-tags"
 		versioningTemplate: "semver-coerced"
-	}, {
+	},
+	{
+		customType: "regex"
+		fileMatch: [
+			"^(.*?).go$",
+		]
+		matchStrings: [
+			"var kubernetesVersion = \"(?<currentValue>.*?)\"",
+		]
+		depNameTemplate:    "kubernetes/kubernetes"
+		datasourceTemplate: "github-releases"
+		versioningTemplate: "semver-coerced"
+	},
+	{
 		customType: "regex"
 		fileMatch: [
 			"^(.*?).go$",

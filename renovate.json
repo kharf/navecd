@@ -67,6 +67,18 @@
                 "^(.*?).go$"
             ],
             "matchStrings": [
+                "var kubernetesVersion = \"(?<currentValue>.*?)\""
+            ],
+            "depNameTemplate": "kubernetes/kubernetes",
+            "datasourceTemplate": "github-releases",
+            "versioningTemplate": "semver-coerced"
+        },
+        {
+            "customType": "regex",
+            "fileMatch": [
+                "^(.*?).go$"
+            ],
+            "matchStrings": [
                 "From\\(\"(?<depName>.*?):(?<currentValue>.*?)\"\\)"
             ],
             "datasourceTemplate": "docker"
