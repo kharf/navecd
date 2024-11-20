@@ -1,6 +1,6 @@
 module: "github.com/kharf/navecd/manifest@v0"
 language: {
-	version: "v0.10.1"
+	version: "v0.11.0"
 }
 deps: {
 	"github.com/kharf/navecd/schema@v0": {
