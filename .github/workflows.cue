@@ -40,7 +40,8 @@ import "github.com/kharf/cuepkgs/modules/github@v0"
 	name: string
 	uses: "dagger/dagger-for-github@v7.0.1"
 	with: {
-		call: string
+		call?: string
+		verb?: string
 	}
 	env?: {
 		[string]: string | number | bool
@@ -169,6 +170,10 @@ workflows: [
 			jobs: "\(_name)": {
 				steps: [
 					#checkoutCode,
+					#dagger & {
+						name: "Init"
+						with: verb: "develop"
+					},
 					#dagger & {
 						name: "Update"
 						with: call: "update --token=env:GITHUB_TOKEN"

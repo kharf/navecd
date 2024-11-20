@@ -52,12 +52,13 @@ func (n *Navecd) buildEnv(ctx context.Context, source *dagger.Directory) *dagger
 }
 
 // when changed, the renovate customManager has also to be updated.
-var kubernetesVersion = "1.27"
+var kubernetesVersion = "v1.27"
 
 func (n *Navecd) kubernetesTestEnv(
 	ctx context.Context,
 	base *dagger.Container,
 ) (*dagger.Container, error) {
+	kubernetesVersion, _ = strings.CutPrefix(kubernetesVersion, "v")
 	container := base.
 		WithExec(
 			[]string{"go", "install", "sigs.k8s.io/controller-runtime/tools/setup-envtest@latest"},
