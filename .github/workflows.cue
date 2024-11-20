@@ -156,7 +156,7 @@ workflows: [
 		}
 	},
 	#workflow & {
-		_name: "update"
+		_name: "Update"
 		workflow: github.#Workflow & {
 			on: {
 				workflow_dispatch: null
