@@ -20,7 +20,7 @@ import (
 )
 
 // when changed, the renovate customManager has also to be updated.
-const ModuleVersion = "v0.10.1"
+const ModuleVersion = "v0.11.0"
 
 type Template interface {
 	Template() string
