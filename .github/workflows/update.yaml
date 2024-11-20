@@ -16,7 +16,7 @@ jobs:
       - name: Update
         uses: dagger/dagger-for-github@v7.0.1
         with:
-          call: --token=env:GITHUB_TOKEN
+          call: update --token=env:GITHUB_TOKEN
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
 permissions: read-all

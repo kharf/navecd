@@ -171,7 +171,7 @@ workflows: [
 					#checkoutCode,
 					#dagger & {
 						name: "Update"
-						with: call: "--token=env:GITHUB_TOKEN"
+						with: call: "update --token=env:GITHUB_TOKEN"
 						env: {
 							GITHUB_TOKEN: "${{ secrets.PAT }}"
 						}
