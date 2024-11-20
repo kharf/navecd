@@ -1694,7 +1694,7 @@ This field may not be empty.`,
 			name:        "Missing-Metadata-Name-With-Schema",
 			packagePath: "./infra/metadatanameschemamissing",
 			template:    useMissingMetadataNameWithSchemaTemplate(),
-			expectedErr: "secret.id: invalid interpolation: cannot reference optional field: name",
+			expectedErr: "CUE Build Error: secret.id: invalid interpolation: non-concrete value strings.MinRunes(1) (type string)",
 		},
 		{
 			name:        "Missing-Metadata-Name",
