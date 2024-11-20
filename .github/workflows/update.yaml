@@ -13,14 +13,10 @@ jobs:
         uses: actions/checkout@v4.2.2
         with:
           token: ${{ secrets.PAT }}
-      - name: Setup Go
-        uses: actions/setup-go@v5.1.0
+      - name: Update
+        uses: dagger/dagger-for-github@v7.0.1
         with:
-          go-version-file: build/go.mod
-          cache-dependency-path: build/go.sum
-      - name: Update Pipeline
-        run: go run cmd/update/main.go
-        working-directory: ./build
+          call: --token=env:GITHUB_TOKEN
         env:
-          RENOVATE_TOKEN: ${{ secrets.PAT }}
+          GITHUB_TOKEN: ${{ secrets.PAT }}
 permissions: read-all

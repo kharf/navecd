@@ -31,15 +31,17 @@ import "github.com/kharf/cuepkgs/modules/github@v0"
 	name: "Setup Go"
 	uses: "actions/setup-go@v5.1.0"
 	with: {
-		"go-version-file":       "build/go.mod"
-		"cache-dependency-path": "build/go.sum"
+		"go-version-file":       "go.mod"
+		"cache-dependency-path": "go.sum"
 	}
 }
 
-#pipeline: {
-	name:                string
-	run:                 string
-	"working-directory": "./build"
+#dagger: {
+	name: string
+	uses: "dagger/dagger-for-github@v7.0.1"
+	with: {
+		call: string
+	}
 	env?: {
 		[string]: string | number | bool
 	}
@@ -47,7 +49,7 @@ import "github.com/kharf/cuepkgs/modules/github@v0"
 
 workflows: [
 	#workflow & {
-		_name: "pr-verification"
+		_name: "PR-Conformance"
 		workflow: github.#Workflow & {
 			on: {
 				pull_request: {
@@ -67,20 +69,27 @@ workflows: [
 							ref: "${{ github.head_ref || github.ref_name }}"
 						}
 					},
-					#setupGo,
-					#pipeline & {
-						name: "Verification Pipeline"
-						run:  "go run cmd/verification/main.go"
+					#dagger & {
+						name: "Generate Workflows"
+						with: call: "gen-workflows --source=. export --path=.github/workflows"
+					},
+					#dagger & {
+						name: "Commit Workflows"
+						with: call: "commit-workflows --source=. --token=env:GITHUB_TOKEN"
 						env: {
-							GH_PAT: "${{ secrets.PAT }}"
+							GITHUB_TOKEN: "${{ secrets.PAT }}"
 						}
+					},
+					#dagger & {
+						name: "Test"
+						with: call: "test --source=."
 					},
 				]
 			}
 		}
 	},
 	#workflow & {
-		_name: "test"
+		_name: "Test"
 		workflow: github.#Workflow & {
 			on: {
 				push: {
@@ -96,20 +105,16 @@ workflows: [
 			jobs: "\(_name)": {
 				steps: [
 					#checkoutCode,
-					#setupGo,
-					#pipeline & {
-						name: "Test Pipeline"
-						run:  "go run cmd/test/main.go"
-						env: {
-							GITHUB_TOKEN: "${{ secrets.PAT }}"
-						}
+					#dagger & {
+						name: "Test"
+						with: call: "test --source=."
 					},
 				]
 			}
 		}
 	},
 	#workflow & {
-		_name: "publish"
+		_name: "Release"
 		workflow: github.#Workflow & {
 			on: {
 				workflow_dispatch: {
@@ -139,9 +144,9 @@ workflows: [
 						}
 					},
 					#setupGo,
-					#pipeline & {
-						name: "Publish Pipeline"
-						run:  "go run cmd/publish/main.go ${{ inputs.version }} ${{ inputs.prev-version }}"
+					#dagger & {
+						name: "Release"
+						with: call: "release --source=. --version=${{ inputs.version }} --previous-version=${{ inputs.prev-version}} --user=kharf --token=env:GITHUB_TOKEN"
 						env: {
 							GITHUB_TOKEN: "${{ secrets.PAT }}"
 						}
@@ -164,12 +169,11 @@ workflows: [
 			jobs: "\(_name)": {
 				steps: [
 					#checkoutCode,
-					#setupGo,
-					#pipeline & {
-						name: "Update Pipeline"
-						run:  "go run cmd/update/main.go"
+					#dagger & {
+						name: "Update"
+						with: call: "--token=env:GITHUB_TOKEN"
 						env: {
-							RENOVATE_TOKEN: "${{ secrets.PAT }}"
+							GITHUB_TOKEN: "${{ secrets.PAT }}"
 						}
 					},
 				]
