@@ -171,10 +171,6 @@ workflows: [
 				steps: [
 					#checkoutCode,
 					#dagger & {
-						name: "Init"
-						with: verb: "develop"
-					},
-					#dagger & {
 						name: "Update"
 						with: call: "update --token=env:GITHUB_TOKEN"
 						env: {
