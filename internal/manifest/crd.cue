@@ -4,7 +4,7 @@ _crd: {
 	apiVersion: "apiextensions.k8s.io/v1"
 	kind:       "CustomResourceDefinition"
 	metadata: {
-		annotations: "controller-gen.kubebuilder.io/version": "v0.15.0"
+		annotations: "controller-gen.kubebuilder.io/version": "v0.16.5"
 		name: "gitopsprojects.gitops.navecd.io"
 	}
 	spec: {
@@ -80,25 +80,7 @@ _crd: {
 						properties: {
 							conditions: {
 								items: {
-									description: """
-	Condition contains details for one aspect of the current state of this API Resource.
-	---
-	This struct is intended for direct use as an array at the field path .status.conditions.  For example,
-
-
-	\ttype FooStatus struct{
-	\t    // Represents the observations of a foo's current state.
-	\t    // Known .status.conditions.type are: "Available", "Progressing", and "Degraded"
-	\t    // +patchMergeKey=type
-	\t    // +patchStrategy=merge
-	\t    // +listType=map
-	\t    // +listMapKey=type
-	\t    Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
-
-
-	\t    // other fields
-	\t}
-	"""
+									description: "Condition contains details for one aspect of the current state of this API Resource."
 									properties: {
 										lastTransitionTime: {
 											description: """
@@ -149,16 +131,10 @@ _crd: {
 											type: "string"
 										}
 										type: {
-											description: """
-	type of condition in CamelCase or in foo.example.com/CamelCase.
-	---
-	Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-	useful (see .node.status.conditions), the ability to deconflict is important.
-	The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
-	"""
-											maxLength: 316
-											pattern:   "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
-											type:      "string"
+											description: "type of condition in CamelCase or in foo.example.com/CamelCase."
+											maxLength:   316
+											pattern:     "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$"
+											type:        "string"
 										}
 									}
 									required: [
