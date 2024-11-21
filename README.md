@@ -32,15 +32,16 @@ We welcome contributions! To contribute to Navecd, follow these steps:
 1. Fork the repository.
 2. Create a new branch for your feature or bug fix.
 3. Make your changes.
-4. Create tests and run them in a containerized environment via Dagger with:
+4. Install Dagger (https://dagger.io/)
+5. Create tests and run them in a containerized environment via Dagger with:
     ```bash
-    cd build/
     # Run all tests
-    go run cmd/test/main.go
+    dagger call test --source=.
 
     # Or run a specific test
-    go run cmd/test/main.go MyTest pkg/mypackage
+    dagger call test --source=. --pkg=pkg/mypkg --test=MyTest
     ```
-5. Create a PR.
-6. Ensure that your code passes the CI/CD checks.
+6. Create a PR.
+7. Ensure that your code passes the CI/CD checks.
+
 For more information, see [CONTRIBUTING.md]().
