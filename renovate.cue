@@ -61,6 +61,7 @@ extends: [
 dependencyDashboard:   true
 semanticCommits:       "enabled"
 rebaseWhen:            "auto"
+rangeStrategy:         "replace"
 branchConcurrentLimit: 0
 prConcurrentLimit:     0
 prHourlyLimit:         0
