@@ -1198,6 +1198,9 @@ ns: component.#Manifest & {
 }
 
 deployment: component.#Manifest & {
+	dependencies: [
+		ns.id
+	]
 	content: {
 		apiVersion: "apps/v1"
 		kind:       "Deployment"
