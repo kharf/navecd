@@ -3,7 +3,7 @@ module github.com/kharf/navecd
 go 1.23.0
 
 require (
-	cuelabs.dev/go/oci/ociregistry v0.0.0-20240906074133-82eb438dd565
+	cuelabs.dev/go/oci/ociregistry v0.0.0-20241125120445-2c00c104c6e1
 	cuelang.org/go v0.11.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.16.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.0
