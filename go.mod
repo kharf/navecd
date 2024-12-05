@@ -16,7 +16,6 @@ require (
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/google/go-containerregistry v0.20.2
 	github.com/google/go-github/v66 v66.0.0
-	github.com/google/go-github/v67 v67.0.0
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.8
 	github.com/jonboulle/clockwork v0.4.0
 	github.com/onsi/ginkgo/v2 v2.22.0
@@ -199,7 +198,7 @@ require (
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/net v0.31.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
-	golang.org/x/sync v0.9.0
+	golang.org/x/sync v0.10.0
 	golang.org/x/sys v0.27.0 // indirect
 	golang.org/x/term v0.26.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
