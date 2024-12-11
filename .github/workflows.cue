@@ -29,7 +29,7 @@ import "github.com/kharf/cuepkgs/modules/github@v0"
 
 #setupGo: {
 	name: "Setup Go"
-	uses: "actions/setup-go@v5.1.0"
+	uses: "actions/setup-go@v5.2.0"
 	with: {
 		"go-version-file":       "go.mod"
 		"cache-dependency-path": "go.sum"
