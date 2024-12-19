@@ -4,7 +4,7 @@ go 1.23.0
 
 require (
 	cuelabs.dev/go/oci/ociregistry v0.0.0-20241125120445-2c00c104c6e1
-	cuelang.org/go v0.11.0
+	cuelang.org/go v0.11.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.16.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.0
 	github.com/aws/aws-sdk-go-v2 v1.32.5
@@ -16,7 +16,6 @@ require (
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/google/go-containerregistry v0.20.2
 	github.com/google/go-github/v66 v66.0.0
-	github.com/google/go-github/v67 v67.0.0
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.8
 	github.com/jonboulle/clockwork v0.4.0
 	github.com/onsi/ginkgo/v2 v2.22.0
