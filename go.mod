@@ -16,7 +16,7 @@ require (
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/google/go-containerregistry v0.20.2
 	github.com/google/go-github/v66 v66.0.0
-	github.com/google/go-github/v67 v67.0.0
+	github.com/google/go-github/v68 v68.0.0
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.8
 	github.com/jonboulle/clockwork v0.4.0
 	github.com/onsi/ginkgo/v2 v2.22.0
