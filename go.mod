@@ -30,7 +30,7 @@ require (
 	k8s.io/apimachinery v0.32.0
 	k8s.io/client-go v0.32.0
 	k8s.io/kubernetes v1.32.0
-	sigs.k8s.io/controller-runtime v0.19.2
+	sigs.k8s.io/controller-runtime v0.19.3
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -113,7 +113,6 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/color v1.16.0 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.6.0 // indirect
