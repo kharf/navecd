@@ -38,7 +38,7 @@ import "github.com/kharf/cuepkgs/modules/github@v0"
 
 #dagger: {
 	name: string
-	uses: "dagger/dagger-for-github@v7.0.3"
+	uses: "dagger/dagger-for-github@v7.0.4"
 	with: {
 		call?: string
 		verb?: string
