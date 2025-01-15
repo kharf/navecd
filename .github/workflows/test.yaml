@@ -16,7 +16,7 @@ jobs:
         with:
           token: ${{ secrets.PAT }}
       - name: Test
-        uses: dagger/dagger-for-github@v7.0.3
+        uses: dagger/dagger-for-github@v7.0.4
         with:
           call: test --source=.
 permissions: read-all
