@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.38.6
 	github.com/foxcpp/go-mockdns v1.1.0
 	github.com/go-co-op/gocron/v2 v2.14.2
-	github.com/go-git/go-git/v5 v5.13.1
+	github.com/go-git/go-git/v5 v5.13.2
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/go-github/v68 v68.0.0
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.8
@@ -92,7 +92,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/ProtonMail/go-crypto v1.1.3 // indirect
+	github.com/ProtonMail/go-crypto v1.1.5 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -117,7 +117,7 @@ require (
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
-	github.com/go-git/go-billy/v5 v5.6.1 // indirect
+	github.com/go-git/go-billy/v5 v5.6.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -169,7 +169,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/pjbgf/sha1cd v0.3.0 // indirect
+	github.com/pjbgf/sha1cd v0.3.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.20.5
 	github.com/prometheus/client_model v0.6.1 // indirect
