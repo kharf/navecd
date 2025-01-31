@@ -3,8 +3,6 @@
 name: Release
 "on":
   workflow_dispatch:
-    branches:
-      - main
     inputs:
       version:
         description: version to be released
@@ -13,9 +11,11 @@ name: Release
         description: previous version to use to calculate the changelog diff from
         required: false
         default: ""
+    branches:
+      - main
+permissions: read-all
 jobs:
   Release:
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.2.2
@@ -34,4 +34,4 @@ jobs:
           call: release --source=. --version=${{ inputs.version }} --previous-version=${{ inputs.prev-version}} --user=kharf --token=env:GITHUB_TOKEN
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
-permissions: read-all
+    runs-on: ubuntu-latest

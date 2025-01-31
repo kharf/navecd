@@ -5,9 +5,9 @@ name: Update
   workflow_dispatch: null
   schedule:
     - cron: 0 5 * * 1-5
+permissions: read-all
 jobs:
   Update:
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.2.2
@@ -19,4 +19,4 @@ jobs:
           call: update --token=env:GITHUB_TOKEN
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
-permissions: read-all
+    runs-on: ubuntu-latest
