@@ -1,6 +1,6 @@
 module: "github.com/kharf/navecd/build@v0"
 language: {
-	version: "v0.11.2"
+	version: "v0.12.0"
 }
 deps: {
 	"github.com/kharf/cuepkgs/modules/github@v0": {
