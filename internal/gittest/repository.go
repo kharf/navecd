@@ -33,7 +33,7 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/google/go-github/v68/github"
+	"github.com/google/go-github/v69/github"
 	"github.com/kharf/navecd/pkg/vcs"
 	"github.com/xanzy/go-gitlab"
 	"gotest.tools/v3/assert"
