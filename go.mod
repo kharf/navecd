@@ -24,7 +24,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.27.0
-	gotest.tools/v3 v3.5.1
+	gotest.tools/v3 v3.5.2
 	helm.sh/helm/v3 v3.17.0
 	k8s.io/api v0.32.1
 	k8s.io/apimachinery v0.32.1
