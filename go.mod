@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.60
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.41.1
 	github.com/foxcpp/go-mockdns v1.1.0
-	github.com/go-co-op/gocron/v2 v2.15.0
+	github.com/go-co-op/gocron/v2 v2.16.0
 	github.com/go-git/go-git/v5 v5.13.2
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/go-github/v69 v69.2.0
@@ -76,7 +76,6 @@ require (
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0 // indirect
 	go.opentelemetry.io/otel/metric v1.33.0 // indirect
-	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 )
 
