@@ -19,7 +19,7 @@ require (
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.8
 	github.com/jonboulle/clockwork v0.5.0
 	github.com/onsi/ginkgo/v2 v2.23.3
-	github.com/onsi/gomega v1.36.3
+	github.com/onsi/gomega v1.37.0
 	github.com/xanzy/go-gitlab v0.115.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/goleak v1.3.0
