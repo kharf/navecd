@@ -129,7 +129,7 @@ func (n *Navecd) Test(
 }
 
 // when changed, the renovate customManager has also to be updated.
-var goreleaserDep = "github.com/goreleaser/goreleaser/v2@v2.8.1"
+var goreleaserDep = "github.com/goreleaser/goreleaser/v2@v2.8.2"
 
 func (n *Navecd) Release(
 	ctx context.Context,
