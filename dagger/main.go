@@ -52,7 +52,7 @@ func (n *Navecd) buildEnv(ctx context.Context, source *dagger.Directory) *dagger
 }
 
 // when changed, the renovate customManager has also to be updated.
-var kubernetesVersion = "v1.32.0"
+var kubernetesVersion = "v1.32.3"
 
 func (n *Navecd) kubernetesTestEnv(
 	ctx context.Context,
