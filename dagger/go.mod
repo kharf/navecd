@@ -20,7 +20,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.35.0
 	go.opentelemetry.io/otel/trace v1.35.0
 	go.opentelemetry.io/proto/otlp v1.5.0
-	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa
+	golang.org/x/exp 7e4ce0ab07d0
 	golang.org/x/sync v0.13.0
 	google.golang.org/grpc v1.71.1
 )
