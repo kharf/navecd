@@ -17,7 +17,7 @@
         "enabled": false
     },
     "ignorePaths": [
-        ".dagger/**"
+        "dagger/**"
     ],
     "postUpdateOptions": [
         "gomodTidy"
