@@ -16,6 +16,9 @@
     "github-actions": {
         "enabled": false
     },
+    "ignorePaths": [
+        ".dagger/**"
+    ],
     "postUpdateOptions": [
         "gomodTidy"
     ],
@@ -106,8 +109,8 @@
             "matchStrings": [
                 "https://github.com/(?<depName>.*?)/releases/download/(?<currentValue>.*?)/"
             ],
-            "versioningTemplate": "semver-coerced",
-            "datasourceTemplate": "github-releases"
+            "datasourceTemplate": "github-releases",
+            "versioningTemplate": "semver-coerced"
         }
     ]
 }
