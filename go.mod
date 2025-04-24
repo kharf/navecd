@@ -31,7 +31,7 @@ require (
 	k8s.io/api v0.33.0
 	k8s.io/apimachinery v0.33.0
 	k8s.io/client-go v0.33.0
-	k8s.io/kubernetes v1.32.4
+	k8s.io/kubernetes v1.33.0
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -50,7 +50,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.19 // indirect
 	github.com/aws/smithy-go v1.22.2 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
-	github.com/containerd/errdefs v0.3.0 // indirect
+	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.16.3 // indirect

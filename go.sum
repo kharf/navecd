@@ -109,8 +109,8 @@ github.com/containerd/containerd v1.7.24 h1:zxszGrGjrra1yYJW/6rhm9cJ1ZQ8rkKBR48b
 github.com/containerd/containerd v1.7.24/go.mod h1:7QUzfURqZWCZV7RLNEn1XjUCQLEf0bkaK4GjUaZehxw=
 github.com/containerd/continuity v0.4.2 h1:v3y/4Yz5jwnvqPKJJ+7Wf93fyWoCB3F5EclWG023MDM=
 github.com/containerd/continuity v0.4.2/go.mod h1:F6PTNCKepoxEaXLQp3wDAjygEnImnZ/7o4JzpodfroQ=
-github.com/containerd/errdefs v0.3.0 h1:FSZgGOeK4yuT/+DnF07/Olde/q4KBoMsaamhXxIMDp4=
-github.com/containerd/errdefs v0.3.0/go.mod h1:+YBYIdtsnF4Iw6nWZhJcqGSg/dwvV7tyJ/kCkyJ2k+M=
+github.com/containerd/errdefs v1.0.0 h1:tg5yIfIlQIrxYtu9ajqY42W3lpS19XqdxRQeEwYG8PI=
+github.com/containerd/errdefs v1.0.0/go.mod h1:+YBYIdtsnF4Iw6nWZhJcqGSg/dwvV7tyJ/kCkyJ2k+M=
 github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=
 github.com/containerd/log v0.1.0/go.mod h1:VRRf09a7mHDIRezVKTRCrOq78v577GXq3bSa3EhrzVo=
 github.com/containerd/platforms v0.2.1 h1:zvwtM3rz2YHPQsF2CHYM8+KtB5dvhISiXh5ZpSBQv6A=
@@ -667,8 +667,8 @@ k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff h1:/usPimJzUKKu+m+TE36gUy
 k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff/go.mod h1:5jIi+8yX4RIb8wk3XwBo5Pq2ccx4FP10ohkbSKCZoK8=
 k8s.io/kubectl v0.33.0 h1:HiRb1yqibBSCqic4pRZP+viiOBAnIdwYDpzUFejs07g=
 k8s.io/kubectl v0.33.0/go.mod h1:gAlGBuS1Jq1fYZ9AjGWbI/5Vk3M/VW2DK4g10Fpyn/0=
-k8s.io/kubernetes v1.32.4 h1:fRZeSjwVE+dMMSS7Qi6LxOOKpVL+1CPAT/b1Cuo4kns=
-k8s.io/kubernetes v1.32.4/go.mod h1:GvhiBeolvSRzBpFlgM0z/Bbu3Oxs9w3P6XfEgYaMi8k=
+k8s.io/kubernetes v1.33.0 h1:BP5Y5yIzUZVeBuE/ESZvnw6TNxjXbLsCckIkljE+R0U=
+k8s.io/kubernetes v1.33.0/go.mod h1:2nWuPk0seE4+6sd0x60wQ6rYEXcV7SoeMbU0YbFm/5k=
 k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738 h1:M3sRQVHv7vB20Xc2ybTt7ODCeFj6JSWYFzOFnYeS6Ro=
 k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 oras.land/oras-go v1.2.5 h1:XpYuAwAb0DfQsunIyMfeET92emK8km3W4yEzZvUbsTo=
