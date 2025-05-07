@@ -2,7 +2,7 @@ module github.com/kharf/navecd
 
 go 1.24.0
 
-toolchain go1.24.2
+toolchain go1.24.3
 
 require (
 	cuelabs.dev/go/oci/ociregistry v0.0.0-20250304105642-27e071d2c9b1
