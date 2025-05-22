@@ -1443,7 +1443,6 @@ func NewHelmEnvironment(t testing.TB, opts ...Option) (*Environment, error) {
 			helmRegistry.ClientOptDebug(true),
 			helmRegistry.ClientOptWriter(os.Stderr),
 			helmRegistry.ClientOptHTTPClient(ociServer.Client()),
-			helmRegistry.ClientOptResolver(nil),
 		}
 
 		helmRegistryClient, err := helmRegistry.NewClient(helmOpts...)
