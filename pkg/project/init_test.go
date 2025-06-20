@@ -95,7 +95,7 @@ func TestInit(t *testing.T) {
 				path, err := os.MkdirTemp("", "")
 				assert.NilError(t, err)
 				moduleFile := modfile.File{
-					Module: "mymodule@v0",
+					Module: "mymodule.com@v0",
 					Language: &modfile.Language{
 						Version: "v0.8.0",
 					},
@@ -128,7 +128,7 @@ func TestInit(t *testing.T) {
 				"navecd/crd.cue",
 			},
 			assert: func(path string, expectedFiles []string) {
-				assertModule(t, path, "mymodule@v0", expectedFiles)
+				assertModule(t, path, "mymodule.com@v0", expectedFiles)
 			},
 		},
 		{

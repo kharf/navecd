@@ -13,9 +13,9 @@ name: Release
         default: ""
     branches:
       - main
-permissions: read-all
 jobs:
   Release:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.2.2
@@ -34,4 +34,4 @@ jobs:
           call: release --source=. --version=${{ inputs.version }} --previous-version=${{ inputs.prev-version}} --user=kharf --token=env:GITHUB_TOKEN
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
-    runs-on: ubuntu-latest
+permissions: read-all

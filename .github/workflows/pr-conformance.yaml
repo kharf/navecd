@@ -7,9 +7,9 @@ name: PR-Conformance
       - '*'
     tags-ignore:
       - '*'
-permissions: read-all
 jobs:
   PR-Conformance:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4.2.2
@@ -30,4 +30,4 @@ jobs:
         uses: dagger/dagger-for-github@8.0.0
         with:
           call: test --source=.
-    runs-on: ubuntu-latest
+permissions: read-all
