@@ -1,6 +1,8 @@
 package build
 
-import "github.com/kharf/cuepkgs/modules/github@v0"
+import (
+	github "cue.dev/x/githubactions"
+)
 
 #workflow: {
 	_name: string
@@ -19,7 +21,7 @@ import "github.com/kharf/cuepkgs/modules/github@v0"
 }
 
 #checkoutCode: {
-	name: "Checkout code"
+	name: string | *"Checkout code"
 	uses: "actions/checkout@v4.2.2"
 	with: {
 		[string]: string | number | bool
@@ -90,6 +92,87 @@ workflows: [
 		}
 	},
 	#workflow & {
+		_name: "E2E"
+		workflow: github.#Workflow & {
+			on: {
+				workflow_dispatch: null
+				push: {
+					branches: [
+						"main",
+					]
+					"tags-ignore": [
+						"*",
+					]
+				}
+				pull_request: {
+					branches: [
+						"main",
+					]
+					"tags-ignore": [
+						"*",
+					]
+				}
+			}
+
+			jobs: "\(_name)": {
+				strategy: matrix: cluster: [
+					{
+						name:  "e2e1"
+						image: "kindest/node:v1.33.1@sha256:050072256b9a903bd914c0b2866828150cb229cea0efe5892e2b644d5dd3b34f"
+					},
+					{
+						name:  "e2e2"
+						image: "kindest/node:v1.32.5@sha256:e3b2327e3a5ab8c76f5ece68936e4cafaa82edf58486b769727ab0b3b97a5b0d"
+					},
+					{
+						name:  "e2e3"
+						image: "kindest/node:v1.31.9@sha256:b94a3a6c06198d17f59cca8c6f486236fa05e2fb359cbd75dabbfc348a10b211"
+					},
+				]
+				steps: [
+					#checkoutCode & {
+						with: {
+							ref: "${{ github.head_ref || github.ref_name }}"
+						}
+					},
+					{
+						name: "Create Kubernetes Cluster"
+						uses: "helm/kind-action@v1.12.0"
+						with: {
+							cluster_name: "${{ matrix.cluster.name }}"
+							node_image:   "${{ matrix.cluster.image }}"
+						}
+					},
+					#dagger & {
+						name: "Build"
+						with: call: "build --source=. export --path=./dist"
+					},
+					{
+						name: "Move binary"
+						run:  "mv ./dist/cli_linux_amd64_v1/navecd /usr/local/bin/navecd"
+					},
+					#checkoutCode & {
+						name: "Clone E2E Repository"
+						with: {
+							repository: "kharf/navecd-e2e"
+							path:       "e2e"
+						}
+					},
+					{
+						name: "Init Navecd"
+						run: """
+						navecd init github.com/kharf/navecd-e2e
+						"""
+					},
+					{
+						name: "Install Navecd"
+						run:  "navecd install -u git@github.com:kharf/navecd-e2e.git -t ${{ secrets.E2E_TOKEN}} -b ${{ matrix.cluster.name }} --name ${{ matrix.cluster.name }}"
+					},
+				]
+			}
+		}
+	},
+	#workflow & {
 		_name: "Test"
 		workflow: github.#Workflow & {
 			on: {
@@ -119,9 +202,6 @@ workflows: [
 		workflow: github.#Workflow & {
 			on: {
 				workflow_dispatch: {
-					branches: [
-						"main",
-					]
 					inputs: {
 						version: {
 							description: "version to be released"

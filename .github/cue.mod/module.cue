@@ -3,7 +3,7 @@ language: {
 	version: "v0.13.0"
 }
 deps: {
-	"github.com/kharf/cuepkgs/modules/github@v0": {
-		v: "v0.0.3"
+	"cue.dev/x/githubactions@v0": {
+		v: "v0.1.0"
 	}
 }

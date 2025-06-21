@@ -20,7 +20,7 @@ var (
 	tmp           = "/tmp"
 )
 
-func (n *Navecd) buildEnv(ctx context.Context, source *dagger.Directory) *dagger.Container {
+func (n *Navecd) buildEnv(source *dagger.Directory) *dagger.Container {
 	goCache := dag.CacheVolume("go")
 	return dag.Container().
 		From("golang:1.24.2-alpine").
@@ -84,8 +84,8 @@ var controllerGenDep = "sigs.k8s.io/controller-tools/cmd/controller-gen@v0.17.3"
 // when changed, the renovate customManager has also to be updated.
 var cueDep = "cuelang.org/go/cmd/cue@v0.13.1"
 
-func (n *Navecd) GenApi(ctx context.Context, source *dagger.Directory) *dagger.File {
-	return n.buildEnv(ctx, source).
+func (n *Navecd) GenApi(source *dagger.Directory) *dagger.File {
+	return n.buildEnv(source).
 		WithExec([]string{"go", "install", controllerGenDep}).
 		WithExec([]string{"go", "install", cueDep}).
 		WithExec([]string{controllerGen, "crd", "paths=./api/v1beta1/...", "output:crd:artifacts:config=internal/manifest"}).
@@ -101,7 +101,7 @@ func (n *Navecd) Test(
 	// +optional
 	test string,
 ) (string, error) {
-	container, err := n.kubernetesTestEnv(ctx, n.buildEnv(ctx, source))
+	container, err := n.kubernetesTestEnv(ctx, n.buildEnv(source))
 	if err != nil {
 		return "", err
 	}
@@ -131,6 +131,29 @@ func (n *Navecd) Test(
 // when changed, the renovate customManager has also to be updated.
 var goreleaserDep = "github.com/goreleaser/goreleaser/v2@v2.8.2"
 
+func (n *Navecd) Build(
+	ctx context.Context,
+	source *dagger.Directory,
+) (*dagger.Directory, error) {
+	bin := filepath.Join(workDir, localBin)
+	build := n.buildEnv(source).
+		WithoutEnvVariable("GOOS").
+		WithoutEnvVariable("GOARCH").
+		WithWorkdir(workDir).
+		WithExec([]string{"go", "install", goreleaserDep}).
+		WithEnvVariable("PATH", "$PATH:"+bin, dagger.ContainerWithEnvVariableOpts{Expand: true})
+
+	build, err := build.
+		WithExec(
+			[]string{"goreleaser", "build", "--single-target", "--snapshot", "--clean"},
+		).Sync(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Directory("./dist"), nil
+}
+
 func (n *Navecd) Release(
 	ctx context.Context,
 	source *dagger.Directory,
@@ -149,7 +172,7 @@ func (n *Navecd) Release(
 	}
 
 	bin := filepath.Join(workDir, localBin)
-	publish := n.buildEnv(ctx, source).
+	publish := n.buildEnv(source).
 		WithoutEnvVariable("GOOS").
 		WithoutEnvVariable("GOARCH").
 		WithExec([]string{"go", "install", cueDep}).
@@ -201,11 +224,10 @@ func (n *Navecd) Release(
 
 func (n *Navecd) GenWorkflows(ctx context.Context, source *dagger.Directory) *dagger.Directory {
 	workflowsDir := "workflows"
-	return n.buildEnv(ctx, source).
+	return n.buildEnv(source).
 		WithWorkdir(".github").
 		WithExec([]string{"mkdir", "-p", workflowsDir}).
 		WithExec([]string{"go", "install", cueDep}).
-		WithEnvVariable("CUE_REGISTRY", "ghcr.io/kharf").
 		WithExec([]string{"../bin/cue", "cmd", "genyamlworkflows"}).
 		Directory(workflowsDir)
 }
@@ -215,7 +237,7 @@ func (n *Navecd) CommitWorkflows(
 	source *dagger.Directory,
 	token *dagger.Secret,
 ) (*dagger.Container, error) {
-	commitContainer, err := n.buildEnv(ctx, source).
+	commitContainer, err := n.buildEnv(source).
 		WithExec([]string{"sh", "-c", "git diff --exit-code .github; echo -n $? > /exit_code"}).
 		Sync(ctx)
 	if err != nil {
