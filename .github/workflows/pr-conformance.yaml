@@ -8,7 +8,7 @@ name: PR-Conformance
     tags-ignore:
       - '*'
 jobs:
-  PR-Conformance:
+  Reconcile-Workflows:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -26,6 +26,14 @@ jobs:
           call: commit-workflows --source=. --token=env:GITHUB_TOKEN
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
+  Test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+        with:
+          token: ${{ secrets.PAT }}
+          ref: ${{ github.head_ref || github.ref_name }}
       - name: Test
         uses: dagger/dagger-for-github@8.0.0
         with:

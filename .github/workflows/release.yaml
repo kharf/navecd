@@ -11,8 +11,6 @@ name: Release
         description: previous version to use to calculate the changelog diff from
         required: false
         default: ""
-    branches:
-      - main
 jobs:
   Release:
     runs-on: ubuntu-latest
