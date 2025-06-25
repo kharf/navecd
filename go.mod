@@ -18,7 +18,7 @@ require (
 	// Pin go-git to fix SSH knownhosts key mismatch regression bug
 	github.com/go-git/go-git/v5 v5.16.3-0.20250610123634-8ac015a75d81
 	github.com/google/go-containerregistry v0.20.6
-	github.com/google/go-github/v72 v72.0.0
+	github.com/google/go-github/v73 v73.0.0
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.8
 	github.com/jonboulle/clockwork v0.5.0
 	github.com/onsi/ginkgo/v2 v2.23.4
@@ -36,6 +36,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/yaml v1.4.0
 )
+
+require github.com/google/go-github/v72 v72.0.0
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 // indirect
