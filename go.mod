@@ -37,8 +37,6 @@ require (
 	sigs.k8s.io/yaml v1.4.0
 )
 
-require github.com/google/go-github/v72 v72.0.0
-
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.4.2 // indirect
