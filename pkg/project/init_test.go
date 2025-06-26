@@ -40,6 +40,7 @@ func TestInit(t *testing.T) {
 				err = project.Init(
 					"github.com/kharf/navecd/init@v0",
 					"primary",
+					"controllerimage",
 					false,
 					path,
 					"0.1.0",
@@ -54,6 +55,16 @@ func TestInit(t *testing.T) {
 			},
 			assert: func(path string, expectedFiles []string) {
 				assertModule(t, path, "github.com/kharf/navecd/init@v0", expectedFiles)
+				systemContent, err := os.ReadFile(filepath.Join(path, "navecd/primary_system.cue"))
+				assert.NilError(t, err)
+
+				systemStrContent := string(systemContent)
+
+				assert.Assert(
+					t,
+					strings.Contains(systemStrContent, "image: \"controllerimage:0.1.0\""),
+					systemStrContent,
+				)
 			},
 		},
 		{
@@ -64,6 +75,7 @@ func TestInit(t *testing.T) {
 				err = project.Init(
 					"github.com/kharf/navecd/init@v0",
 					"primary",
+					"controllerimage",
 					false,
 					path,
 					"0.1.0",
@@ -72,6 +84,7 @@ func TestInit(t *testing.T) {
 				err = project.Init(
 					"github.com/kharf/navecd/init@v0",
 					"secondary",
+					"controllerimage",
 					true,
 					path,
 					"0.1.0",
@@ -115,6 +128,7 @@ func TestInit(t *testing.T) {
 				err = project.Init(
 					"github.com/kharf/navecd/init@v0",
 					"primary",
+					"controllerimage",
 					false,
 					path,
 					"0.1.0",
@@ -145,6 +159,7 @@ func TestInit(t *testing.T) {
 				err = project.Init(
 					"github.com/kharf/navecd/init",
 					"primary",
+					"controllerimage",
 					false,
 					path,
 					"0.1.0",
@@ -179,6 +194,7 @@ func TestInit(t *testing.T) {
 				err = project.Init(
 					"github.com/kharf/navecd/init",
 					"primary",
+					"controllerimage",
 					false,
 					path,
 					"0.1.0",
@@ -235,6 +251,5 @@ func assertModule(t *testing.T, path string, module string, expectedFiles []stri
 	for _, file := range expectedFiles {
 		_, err = os.Open(filepath.Join(path, file))
 		assert.NilError(t, err)
-
 	}
 }

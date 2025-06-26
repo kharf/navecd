@@ -137,6 +137,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 				err := project.Init(
 					"github.com/kharf/navecd/controller",
 					"primary",
+					"image",
 					false,
 					env.LocalTestProject,
 					"1.0.0",
@@ -190,6 +191,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 					err := project.Init(
 						"github.com/kharf/navecd/controller",
 						"primary",
+						"image",
 						false,
 						env.LocalTestProject,
 						"0.0.99",
@@ -325,6 +327,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 				err := project.Init(
 					"github.com/kharf/navecd/controller",
 					"primary",
+					"image",
 					false,
 					env.LocalTestProject,
 					"0.0.99",

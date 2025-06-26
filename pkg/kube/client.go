@@ -306,10 +306,10 @@ func (client *DynamicClient) wait(
 		return false, err
 	}
 
-	conditions := getConditions(obj)
-	ok := slices.ContainsFunc(conditions, func(cond condition) bool {
-		return cond.cType == string(apiextensionsv1.Established) &&
-			cond.status == string(apiextensionsv1.ConditionTrue)
+	conditions := GetConditions(obj)
+	ok := slices.ContainsFunc(conditions, func(cond Condition) bool {
+		return cond.ConditionType == string(apiextensionsv1.Established) &&
+			cond.Status == string(apiextensionsv1.ConditionTrue)
 	})
 	if ok {
 		return true, nil
@@ -319,13 +319,13 @@ func (client *DynamicClient) wait(
 	return client.wait(ctx, name, typeMeta, resourceInterface)
 }
 
-type condition struct {
-	cType  string
-	status string
+type Condition struct {
+	ConditionType string
+	Status        string
 }
 
-func getConditions(obj *unstructured.Unstructured) []condition {
-	conditions := make([]condition, 0, 2)
+func GetConditions(obj *unstructured.Unstructured) []Condition {
+	conditions := make([]Condition, 0, 2)
 	status, ok := obj.Object["status"]
 	if !ok {
 		return conditions
@@ -357,7 +357,7 @@ func getConditions(obj *unstructured.Unstructured) []condition {
 			return conditions
 		}
 
-		conditions = append(conditions, condition{cType: t, status: status})
+		conditions = append(conditions, Condition{ConditionType: t, Status: status})
 	}
 
 	return conditions

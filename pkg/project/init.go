@@ -33,6 +33,7 @@ const (
 func Init(
 	module string,
 	shard string,
+	controllerImage string,
 	isSecondary bool,
 	path string,
 	version string,
@@ -136,6 +137,7 @@ func Init(
 		if err := tmpl.Execute(&buf, map[string]string{
 			"Name":    getControllerName(shard),
 			"Shard":   shard,
+			"Image":   controllerImage,
 			"Version": version,
 		}); err != nil {
 			return err

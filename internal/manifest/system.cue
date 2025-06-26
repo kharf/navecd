@@ -201,7 +201,7 @@ _{{.Shard}}LeaderRoleName: "{{.Shard}}-leader-election"
 					containers: [
 						{
 							name:  "{{.Name}}"
-							image: "ghcr.io/kharf/navecd:{{ .Version }}"
+							image: "{{.Image}}:{{.Version}}"
 							command: [
 								"/controller",
 							]

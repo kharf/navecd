@@ -30,9 +30,9 @@ builds:
 
 archives:
   - id: cli
-    builds:
+    ids:
       - cli
-    format: tar.gz
+    formats: ['tar.gz']
     # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: >-
       {{ .ProjectName }}_
@@ -44,12 +44,12 @@ archives:
     # use zip for windows archives
     format_overrides:
       - goos: windows
-        format: zip
+        formats: ['zip']
 
   - id: controller
-    builds:
+    ids:
       - controller
-    format: tar.gz
+    formats: ['tar.gz']
     name_template: >-
       {{ .ProjectName }}_controller_
       {{- .Os }}_
@@ -69,3 +69,6 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+
+snapshot:
+  version_template: "0.0.0-dev"

@@ -92,7 +92,7 @@ func defaultAssertion(
 	projectTmpl, err := template.New("").Parse(manifest.Project)
 
 	assert.NilError(t, err)
-	err = projectTmpl.Execute(&projectBuf, map[string]interface{}{
+	err = projectTmpl.Execute(&projectBuf, map[string]any{
 		"Name":                projectName,
 		"Namespace":           project.ControllerNamespace,
 		"Branch":              branch,
@@ -161,7 +161,7 @@ func TestInstallAction_Install(t *testing.T) {
 		},
 		{
 			name: "Persist-Token",
-			test: fresh,
+			test: persistToken,
 		},
 		{
 			name: "Multi-Tenancy",
@@ -202,6 +202,7 @@ func fresh(t *testing.T, testContext testContext) {
 	err := project.Init(
 		"github.com/owner/repo/installation",
 		projectName,
+		"image",
 		false,
 		testProject,
 		"0.0.99",
@@ -249,6 +250,7 @@ func persistToken(t *testing.T, testContext testContext) {
 	err := project.Init(
 		"github.com/owner/repo/installation",
 		projectName,
+		"image",
 		false,
 		testProject,
 		"0.0.99",
@@ -310,6 +312,7 @@ func multiTenancy(t *testing.T, testContext testContext) {
 	err := project.Init(
 		"github.com/owner/repo/installation",
 		projectName,
+		"image",
 		false,
 		testProject,
 		"0.0.99",
@@ -356,6 +359,7 @@ func multiTenancy(t *testing.T, testContext testContext) {
 	err = project.Init(
 		"github.com/owner/repo/installation",
 		secondaryProjectName,
+		"image",
 		true,
 		testProject,
 		"0.0.99",
@@ -395,6 +399,7 @@ func runTwice(t *testing.T, testContext testContext) {
 	err := project.Init(
 		"github.com/owner/repo/installation",
 		projectName,
+		"image",
 		false,
 		testProject,
 		"0.0.99",

@@ -63,6 +63,7 @@ type InitCommandBuilder struct{}
 func (builder InitCommandBuilder) Build() *cobra.Command {
 	var shard string
 	var isSecondary bool
+	var image string
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Init a Navecd Project in the current directory",
@@ -75,6 +76,7 @@ func (builder InitCommandBuilder) Build() *cobra.Command {
 			return project.Init(
 				args[0],
 				shard,
+				image,
 				isSecondary,
 				cwd,
 				Version,
@@ -85,6 +87,8 @@ func (builder InitCommandBuilder) Build() *cobra.Command {
 		StringVar(&shard, "shard", "primary", "Instance of the Navecd Project")
 	cmd.Flags().
 		BoolVar(&isSecondary, "secondary", false, "Indicates a secondary Navecd instance")
+	cmd.Flags().
+		StringVar(&image, "image", "ghcr.io/kharf/navecd", "Navecd controller image to use")
 	return cmd
 }
 
