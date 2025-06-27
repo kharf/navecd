@@ -16,9 +16,6 @@
     "github-actions": {
         "enabled": false
     },
-    "ignorePaths": [
-        "dagger/**"
-    ],
     "postUpdateOptions": [
         "gomodTidy"
     ],
