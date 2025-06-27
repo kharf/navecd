@@ -106,14 +106,6 @@ workflows: [
 					"*",
 				]
 			}
-			pull_request: {
-				branches: [
-					"main",
-				]
-				"tags-ignore": [
-					"*",
-				]
-			}
 		}
 
 		jobs: Prepare: steps: [

@@ -8,11 +8,6 @@ name: E2E
       - main
     tags-ignore:
       - '*'
-  pull_request:
-    branches:
-      - main
-    tags-ignore:
-      - '*'
 jobs:
   Prepare:
     runs-on: ubuntu-latest
