@@ -108,6 +108,11 @@ workflows: [
 			}
 		}
 
+		concurrency: {
+			group:                "${{ github.workflow }}-${{ github.ref }}"
+			"cancel-in-progress": true
+		}
+
 		jobs: Prepare: steps: [
 			#checkoutCode & {
 				name: "Checkout E2E Repository"
