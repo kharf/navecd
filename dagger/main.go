@@ -79,7 +79,7 @@ func (n *Navecd) kubernetesTestEnv(
 }
 
 // when changed, the renovate customManager has also to be updated.
-var controllerGenDep = "sigs.k8s.io/controller-tools/cmd/controller-gen@v0.17.3"
+var controllerGenDep = "sigs.k8s.io/controller-tools/cmd/controller-gen@v0.18.0"
 
 // when changed, the renovate customManager has also to be updated.
 var cueDep = "cuelang.org/go/cmd/cue@v0.13.1"
