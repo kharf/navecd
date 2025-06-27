@@ -1,6 +1,6 @@
 {
   "name": "navecd",
-  "engineVersion": "v0.18.3",
+  "engineVersion": "v0.18.11",
   "sdk": {
     "source": "go"
   },

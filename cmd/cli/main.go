@@ -110,7 +110,7 @@ func (builder VerifyCommandBuilder) Build() *cobra.Command {
 				-1,
 			)
 
-			instance, err := projectManager.Load(cwd)
+			instance, err := projectManager.Load(cwd, ".")
 			if err != nil {
 				return err
 			}

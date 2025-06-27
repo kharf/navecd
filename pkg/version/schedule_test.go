@@ -209,7 +209,7 @@ func runScheduleTestCase(t *testing.T, ctx context.Context, tc scheduleTestCase)
 		ErrGroup:   schedulerEg,
 	}
 
-	jobCount, err := updateScheduler.Schedule(ctx, updateInstructions)
+	jobCount, err := updateScheduler.Schedule(ctx, "projectuid", updateInstructions)
 	if tc.wantErr != "" {
 		assert.ErrorContains(t, err, tc.wantErr)
 		return
@@ -233,7 +233,7 @@ func runScheduleTestCase(t *testing.T, ctx context.Context, tc scheduleTestCase)
 	}
 
 	if jobCount != 0 {
-		fakeClock.BlockUntil(1)
+		fakeClock.BlockUntilContext(ctx, 1)
 		fakeClock.Advance(1 * time.Second)
 	}
 

@@ -31,8 +31,25 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-func useManagerTemplate() string {
-	return fmt.Sprintf(`
+type manifestMeta struct {
+	apiVersion string
+	kind       string
+	name       string
+	namespace  string
+}
+
+func TestManager_Load(t *testing.T) {
+	testCases := []struct {
+		name                string
+		reconcileDir        string
+		template            string
+		expectedManifests   []manifestMeta
+		unexpectedManifests []manifestMeta
+	}{
+		{
+			name:         "SingleStageProject",
+			reconcileDir: ".",
+			template: fmt.Sprintf(`
 -- cue.mod/module.cue --
 module: "github.com/kharf/navecd/internal/controller/projectone@v0"
 language: version: "%s"
@@ -75,10 +92,93 @@ import (
 ns: component.#Manifest & {
 	content: #namespace
 }
-`, testtemplates.ModuleVersion)
+`, testtemplates.ModuleVersion),
+
+			expectedManifests: []manifestMeta{
+				{
+					apiVersion: "v1",
+					kind:       "Namespace",
+					name:       "toola",
+					namespace:  "",
+				},
+				{
+					apiVersion: "v1",
+					kind:       "Namespace",
+					name:       "toolb",
+					namespace:  "",
+				},
+			},
+
+			unexpectedManifests: []manifestMeta{},
+		},
+
+		{
+			name:         "MultiStageProject",
+			reconcileDir: "dev",
+			template: fmt.Sprintf(`
+-- cue.mod/module.cue --
+module: "github.com/kharf/navecd/internal/controller/projectone@v0"
+language: version: "%s"
+deps: {
+	"github.com/kharf/navecd/schema@v0": {
+		v: "v0.0.99"
+	}
 }
 
-func TestManager_Load(t *testing.T) {
+-- dev/infra/toola/namespace.cue --
+package toola
+
+import (
+	"github.com/kharf/navecd/schema/component"
+)
+
+#namespace: {
+	apiVersion: "v1"
+	kind:       "Namespace"
+	metadata: name: "toola"
+}
+
+ns: component.#Manifest & {
+	content: #namespace
+}
+
+-- int/infra/toolb/namespace.cue --
+package toolb
+
+import (
+	"github.com/kharf/navecd/schema/component"
+)
+
+#namespace: {
+	apiVersion: "v1"
+	kind:       "Namespace"
+	metadata: name: "toolb"
+}
+
+ns: component.#Manifest & {
+	content: #namespace
+}
+`, testtemplates.ModuleVersion),
+
+			expectedManifests: []manifestMeta{
+				{
+					apiVersion: "v1",
+					kind:       "Namespace",
+					name:       "toola",
+					namespace:  "",
+				},
+			},
+			unexpectedManifests: []manifestMeta{
+				{
+					apiVersion: "v1",
+					kind:       "Namespace",
+					name:       "toolb",
+					namespace:  "",
+				},
+			},
+		},
+	}
+
 	var err error
 	dnsServer, err := dnstest.NewDNSServer()
 	assert.NilError(t, err)
@@ -88,29 +188,61 @@ func TestManager_Load(t *testing.T) {
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
-	env := projecttest.InitTestEnvironment(t, []byte(useManagerTemplate()))
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			env := projecttest.InitTestEnvironment(t, []byte(tc.template))
 
-	pm := project.NewManager(component.NewBuilder(), runtime.GOMAXPROCS(0))
-	instance, err := pm.Load(env.LocalTestProject)
-	assert.NilError(t, err)
+			pm := project.NewManager(component.NewBuilder(), runtime.GOMAXPROCS(0))
+			instance, err := pm.Load(env.LocalTestProject, tc.reconcileDir)
+			assert.NilError(t, err)
 
-	dag := instance.Dag
+			dag := instance.Dag
 
-	ns := dag.Get("toola___Namespace")
-	assert.Assert(t, ns != nil)
-	nsManifest, ok := ns.(*component.Manifest)
-	assert.Assert(t, ok)
-	assert.Assert(t, nsManifest.GetAPIVersion() == "v1")
-	assert.Assert(t, nsManifest.GetKind() == "Namespace")
-	assert.Assert(t, nsManifest.GetName() == "toola")
+			for _, expectedManifest := range tc.expectedManifests {
+				apiVersionSplit := strings.Split(expectedManifest.apiVersion, "/")
+				group := ""
+				if len(apiVersionSplit) == 2 {
+					group = apiVersionSplit[0]
+				}
+				manifest := dag.Get(
+					fmt.Sprintf(
+						"%s_%s_%s_%s",
+						expectedManifest.name,
+						expectedManifest.namespace,
+						group,
+						expectedManifest.kind,
+					),
+				)
 
-	ns = dag.Get("toolb___Namespace")
-	assert.Assert(t, ns != nil)
-	nsManifest, ok = ns.(*component.Manifest)
-	assert.Assert(t, ok)
-	assert.Assert(t, nsManifest.GetAPIVersion() == "v1")
-	assert.Assert(t, nsManifest.GetKind() == "Namespace")
-	assert.Assert(t, nsManifest.GetName() == "toolb")
+				assert.Assert(t, manifest != nil)
+				compManifest, ok := manifest.(*component.Manifest)
+				assert.Assert(t, ok)
+				assert.Equal(t, compManifest.GetAPIVersion(), expectedManifest.apiVersion)
+				assert.Equal(t, compManifest.GetKind(), expectedManifest.kind)
+				assert.Equal(t, compManifest.GetName(), expectedManifest.name)
+				assert.Equal(t, compManifest.GetNamespace(), expectedManifest.namespace)
+			}
+
+			for _, unexpectedManifest := range tc.unexpectedManifests {
+				apiVersionSplit := strings.Split(unexpectedManifest.apiVersion, "/")
+				group := ""
+				if len(apiVersionSplit) == 2 {
+					group = apiVersionSplit[0]
+				}
+				manifest := dag.Get(
+					fmt.Sprintf(
+						"%s_%s_%s_%s",
+						unexpectedManifest.name,
+						unexpectedManifest.namespace,
+						group,
+						unexpectedManifest.kind,
+					),
+				)
+
+				assert.Assert(t, manifest == nil)
+			}
+		})
+	}
 }
 
 var appTemplate = `
@@ -244,10 +376,10 @@ deps: {
 	}
 
 	pm := project.NewManager(component.NewBuilder(), -1)
-	b.ResetTimer()
+
 	var inst *project.Instance
-	for n := 0; n < b.N; n++ {
-		inst, err = pm.Load(root)
+	for b.Loop() {
+		inst, err = pm.Load(root, ".")
 		b.StopTimer()
 		assert.NilError(b, err)
 		b.StartTimer()

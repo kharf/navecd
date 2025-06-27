@@ -53,6 +53,7 @@ type Instance struct {
 // Load uses a given path to a project and returns the components as a directed acyclic dependency graph.
 func (manager *Manager) Load(
 	projectPath string,
+	dir string,
 ) (*Instance, error) {
 	projectPath = strings.TrimSuffix(projectPath, "/")
 	if _, err := os.Stat(projectPath); errors.Is(err, fs.ErrNotExist) {
@@ -91,7 +92,7 @@ func (manager *Manager) Load(
 		return nil
 	})
 
-	if err := walkDir(projectPath, producerEg, packageChan); err != nil {
+	if err := walkDir(projectPath, dir, producerEg, packageChan); err != nil {
 		return nil, err
 	}
 
@@ -109,9 +110,21 @@ func (manager *Manager) Load(
 	return dag, nil
 }
 
-func walkDir(projectPath string, packageGroup *errgroup.Group, packageChan chan<- string) error {
+func walkDir(
+	projectPath string,
+	dir string,
+	packageGroup *errgroup.Group,
+	packageChan chan<- string,
+) error {
+	var walkPath string
+	if dir == "." {
+		walkPath = projectPath
+	} else {
+		walkPath = filepath.Join(projectPath, dir)
+	}
+
 	err := filepath.WalkDir(
-		projectPath,
+		walkPath,
 		func(path string, dirEntry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -119,8 +132,8 @@ func walkDir(projectPath string, packageGroup *errgroup.Group, packageChan chan<
 
 			if dirEntry.IsDir() {
 				// TODO implement a dynamic way for ignoring directories
-				if path == filepath.Join(projectPath, "cue.mod") ||
-					path == filepath.Join(projectPath, ".git") {
+				if path == filepath.Join(walkPath, "cue.mod") ||
+					path == filepath.Join(walkPath, ".git") {
 					return filepath.SkipDir
 				}
 
