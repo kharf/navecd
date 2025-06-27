@@ -161,7 +161,7 @@ workflows: [
 					uses: "actions/setup-go@v5.5.0"
 				},
 				{
-					uses: "cue-lang/setup-cue@v1.0.0"
+					uses: "cue-lang/setup-cue@v1.0.1"
 				},
 				{
 					name: "Create Kubernetes Cluster"
