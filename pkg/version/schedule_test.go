@@ -17,6 +17,7 @@ package version_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -32,7 +33,6 @@ import (
 	"github.com/kharf/navecd/pkg/version"
 	"go.uber.org/goleak"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/sync/errgroup"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/poll"
 	"k8s.io/kubernetes/pkg/util/parsers"
@@ -45,12 +45,16 @@ type image struct {
 	constraint string
 }
 
+type project struct {
+	uid         string
+	haveImages  []image
+	wantCommits []string
+}
+
 type scheduleTestCase struct {
 	name         string
-	haveImages   []image
+	projects     []project
 	haveTags     map[string][]string
-	wantErr      string
-	wantCommits  []string
 	wantJobCount int
 }
 
@@ -61,21 +65,25 @@ var (
 			"myimage":  {"1.16.5"},
 			"myimage2": {"1.17.5"},
 		},
-		haveImages: []image{
+		projects: []project{
 			{
-				name:       "myimage:1.15.0",
-				schedule:   "* * * * * *",
-				constraint: "1.16.5",
+				haveImages: []image{
+					{
+						name:       "myimage:1.15.0",
+						schedule:   "* * * * * *",
+						constraint: "1.16.5",
+					},
+					{
+						name:       "myimage2:1.16.0",
+						schedule:   "* * * * * *",
+						constraint: "1.17.5",
+					},
+				},
+				wantCommits: []string{
+					"chore(update): bump myimage to 1.16.5",
+					"chore(update): bump myimage2 to 1.17.5",
+				},
 			},
-			{
-				name:       "myimage2:1.16.0",
-				schedule:   "* * * * * *",
-				constraint: "1.17.5",
-			},
-		},
-		wantCommits: []string{
-			"chore(update): bump myimage to 1.16.5",
-			"chore(update): bump myimage2 to 1.17.5",
 		},
 		wantJobCount: 2,
 	}
@@ -86,16 +94,69 @@ var (
 			"myimage":  {"1.16.5"},
 			"myimage2": {"1.17.5"},
 		},
-		haveImages: []image{
+		projects: []project{
 			{
-				name:       "myimage:1.15.0",
-				schedule:   "",
-				constraint: "1.16.5",
+				haveImages: []image{
+					{
+						name:       "myimage:1.15.0",
+						schedule:   "",
+						constraint: "1.16.5",
+					},
+				},
 			},
 		},
-		// Errors are log only.
-		wantErr:      "",
 		wantJobCount: 0,
+	}
+
+	multipleProjects = scheduleTestCase{
+		name: "MultipleProjects",
+		haveTags: map[string][]string{
+			"myimage":  {"1.16.5"},
+			"myimage2": {"1.17.5"},
+			"myimage3": {"1.16.5"},
+			"myimage4": {"1.17.5"},
+		},
+		projects: []project{
+			{
+				uid: "a",
+				haveImages: []image{
+					{
+						name:       "myimage:1.15.0",
+						schedule:   "* * * * * *",
+						constraint: "1.16.5",
+					},
+					{
+						name:       "myimage2:1.16.0",
+						schedule:   "* * * * * *",
+						constraint: "1.17.5",
+					},
+				},
+				wantCommits: []string{
+					"chore(update): bump myimage to 1.16.5",
+					"chore(update): bump myimage2 to 1.17.5",
+				},
+			},
+			{
+				uid: "b",
+				haveImages: []image{
+					{
+						name:       "myimage3:1.15.0",
+						schedule:   "* * * * * *",
+						constraint: "1.16.5",
+					},
+					{
+						name:       "myimage4:1.16.0",
+						schedule:   "* * * * * *",
+						constraint: "1.17.5",
+					},
+				},
+				wantCommits: []string{
+					"chore(update): bump myimage3 to 1.16.5",
+					"chore(update): bump myimage4 to 1.17.5",
+				},
+			},
+		},
+		wantJobCount: 4,
 	}
 )
 
@@ -109,63 +170,8 @@ func TestUpdateScheduler_Schedule(t *testing.T) {
 	testCases := []scheduleTestCase{
 		newJobs,
 		missingSchedule,
+		multipleProjects,
 	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			runScheduleTestCase(t, ctx, tc)
-		})
-	}
-}
-
-func runScheduleTestCase(t *testing.T, ctx context.Context, tc scheduleTestCase) {
-	fakeClock := clockwork.NewFakeClock()
-	scheduler, err := gocron.NewScheduler(gocron.WithClock(fakeClock))
-	assert.NilError(t, err)
-	scheduler.Start()
-	quitChan := make(chan struct{}, 1)
-	schedulerEg := &errgroup.Group{}
-	schedulerEg.SetLimit(1)
-	defer func() {
-		quitChan <- struct{}{}
-		_ = scheduler.Shutdown()
-	}()
-
-	dnsServer, err := dnstest.NewDNSServer()
-	assert.NilError(t, err)
-	defer dnsServer.Close()
-
-	projectDir := t.TempDir()
-
-	repoNames := make([]string, 0, len(tc.haveImages))
-	updateInstructions := make([]version.UpdateInstruction, 0, len(tc.haveImages))
-	sb := strings.Builder{}
-	sb.Write([]byte("-- apps/myapp.cue --\n"))
-	for i, image := range tc.haveImages {
-		sb.Write([]byte(image.name))
-		updateInstructions = append(updateInstructions, version.UpdateInstruction{
-			Strategy:    version.SemVer,
-			Constraint:  image.constraint,
-			Integration: version.Direct,
-			Schedule:    image.schedule,
-			File:        "apps/myapp.cue",
-			Line:        i + 1,
-			Target: &version.ContainerUpdateTarget{
-				Image: image.name,
-				UnstructuredNode: map[string]any{
-					"image": image.name,
-				},
-				UnstructuredKey: "image",
-			},
-		})
-
-		repoName, _, _, err := parsers.ParseImageName(image.name)
-		assert.NilError(t, err)
-		repoNames = append(repoNames, repoName)
-	}
-
-	_, err = inttxtar.Create(projectDir, bytes.NewReader([]byte(sb.String())))
-	assert.NilError(t, err)
 
 	logOpts := zap.Options{
 		Development: true,
@@ -173,77 +179,132 @@ func runScheduleTestCase(t *testing.T, ctx context.Context, tc scheduleTestCase)
 	}
 	log := zap.New(zap.UseFlagOptions(&logOpts))
 
-	repository := &gittest.FakeRepository{
-		RepoPath: projectDir,
-	}
-
-	haveTags := make(map[string][]string, len(tc.haveTags))
-
-	for key, value := range tc.haveTags {
-		repoName, _, _, err := parsers.ParseImageName(key)
-		assert.NilError(t, err)
-
-		haveTags[repoName] = value
-	}
-
-	fakeOciClient := &ocitest.FakeClient{
-		WantTags: haveTags,
-	}
-
-	updateScheduler := version.UpdateScheduler{
-		Log:       log,
-		Scheduler: scheduler,
-		Scanner: version.Scanner{
-			Log:        log,
-			KubeClient: &kubetest.FakeDynamicClient{},
-			OCIClient:  fakeOciClient,
-			Namespace:  "test",
-		},
-		Updater: version.Updater{
-			Log:        log,
-			Repository: repository,
-			Branch:     "main",
-		},
-		QuitChan:   quitChan,
-		UpdateChan: make(chan version.AvailableUpdate, 10),
-		ErrGroup:   schedulerEg,
-	}
-
-	jobCount, err := updateScheduler.Schedule(ctx, "projectuid", updateInstructions)
-	if tc.wantErr != "" {
-		assert.ErrorContains(t, err, tc.wantErr)
-		return
-	}
+	fakeClock := clockwork.NewFakeClock()
+	scheduler, quitChan, err := version.NewUpdateScheduler(log, gocron.WithClock(fakeClock))
 	assert.NilError(t, err)
+	scheduler.Start()
+	defer func() {
+		scheduler.Shutdown()
+		quitChan <- struct{}{}
+	}()
 
-	assert.Equal(t, jobCount, tc.wantJobCount)
-	assert.Equal(t, len(scheduler.Jobs()), tc.wantJobCount)
-	check := func(t poll.LogT) poll.Result {
-		if len(repository.CommitsMade) != len(tc.wantCommits) {
-			return poll.Continue("")
-		}
+	dnsServer, err := dnstest.NewDNSServer()
+	assert.NilError(t, err)
+	defer dnsServer.Close()
 
-		for _, wantCommit := range tc.wantCommits {
-			if !slices.Contains(repository.CommitsMade, wantCommit) {
-				return poll.Continue("missing commit")
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			checks := []func(t poll.LogT) poll.Result{}
+			var repoNames []string
+
+			haveTags := make(map[string][]string, len(tc.haveTags))
+
+			for key, value := range tc.haveTags {
+				repoName, _, _, err := parsers.ParseImageName(key)
+				assert.NilError(t, err)
+
+				haveTags[repoName] = value
 			}
-		}
 
-		return poll.Success()
-	}
+			fakeOciClient := &ocitest.FakeClient{
+				WantTags: haveTags,
+			}
 
-	if jobCount != 0 {
-		fakeClock.BlockUntilContext(ctx, 1)
-		fakeClock.Advance(1 * time.Second)
-	}
+			for _, project := range tc.projects {
+				projectDir := t.TempDir()
 
-	poll.WaitOn(t, check, poll.WithDelay(1*time.Second))
+				updateInstructions := make([]version.UpdateInstruction, 0, len(project.haveImages))
+				sb := strings.Builder{}
+				sb.Write([]byte("-- apps/myapp.cue --\n"))
+				for i, image := range project.haveImages {
+					sb.Write([]byte(image.name))
+					updateInstructions = append(updateInstructions, version.UpdateInstruction{
+						Strategy:    version.SemVer,
+						Constraint:  image.constraint,
+						Integration: version.Direct,
+						Schedule:    image.schedule,
+						File:        "apps/myapp.cue",
+						Line:        i + 1,
+						Target: &version.ContainerUpdateTarget{
+							Image: image.name,
+							UnstructuredNode: map[string]any{
+								"image": image.name,
+							},
+							UnstructuredKey: "image",
+						},
+					})
 
-	if tc.wantJobCount != 0 {
-		for _, repoName := range repoNames {
-			assert.Assert(t, slices.Contains(fakeOciClient.ListTagCalls, repoName))
-		}
-	} else {
-		assert.Equal(t, len(fakeOciClient.ListTagCalls), 0)
+					repoName, _, _, err := parsers.ParseImageName(image.name)
+					assert.NilError(t, err)
+					repoNames = append(repoNames, repoName)
+				}
+
+				_, err = inttxtar.Create(projectDir, bytes.NewReader([]byte(sb.String())))
+				assert.NilError(t, err)
+
+				repository := &gittest.FakeRepository{
+					RepoPath: projectDir,
+				}
+
+				request := version.ScheduleRequest{
+					ProjectUID: project.uid,
+					Scanner: version.Scanner{
+						Log:        log,
+						KubeClient: &kubetest.FakeDynamicClient{},
+						OCIClient:  fakeOciClient,
+						Namespace:  "test",
+					},
+					Repository:   repository,
+					Branch:       "main",
+					Instructions: updateInstructions,
+				}
+
+				_, err := scheduler.Schedule(ctx, request)
+				assert.NilError(t, err)
+
+				check := func(t poll.LogT) poll.Result {
+					commitsMade := len(repository.CommitsMade)
+					wantCommits := len(project.wantCommits)
+					if commitsMade != wantCommits {
+						return poll.Continue(
+							fmt.Sprintf(
+								"have %v commits, want %v commits for project %s",
+								commitsMade,
+								wantCommits,
+								project.uid,
+							),
+						)
+					}
+
+					for _, wantCommit := range project.wantCommits {
+						if !slices.Contains(repository.CommitsMade, wantCommit) {
+							return poll.Continue("missing commit")
+						}
+					}
+
+					return poll.Success()
+				}
+
+				checks = append(checks, check)
+			}
+
+			assert.Equal(t, len(scheduler.Jobs()), tc.wantJobCount)
+			if len(scheduler.Jobs()) != 0 {
+				fakeClock.BlockUntilContext(ctx, 1)
+				fakeClock.Advance(1 * time.Second)
+			}
+
+			for _, check := range checks {
+				poll.WaitOn(t, check, poll.WithDelay(1*time.Second))
+			}
+
+			if tc.wantJobCount != 0 {
+				for _, repoName := range repoNames {
+					assert.Assert(t, slices.Contains(fakeOciClient.ListTagCalls, repoName))
+				}
+			} else {
+				assert.Equal(t, len(fakeOciClient.ListTagCalls), 0)
+			}
+		})
 	}
 }

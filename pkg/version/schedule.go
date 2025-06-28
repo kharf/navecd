@@ -18,89 +18,101 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/go-co-op/gocron/v2"
 	"github.com/go-logr/logr"
-	"golang.org/x/sync/errgroup"
+	"github.com/kharf/navecd/pkg/vcs"
 )
+
+// AvailableUpdate represents the result of a positive version scanning operation.
+// It holds details about the current and new version, as well as the file and line at which these versions were found and the desired update integration method.
+type AvailableUpdate struct {
+	Repository vcs.Repository
+	Branch     string
+	ImageScan  ImageScan
+
+	// Integration defines the method on how to push updates to the version control system.
+	Integration UpdateIntegration
+
+	// File where the versions were found.
+	File string
+	// Line number within the file where the versions were found.
+	Line   int
+	Target UpdateTarget
+}
 
 // UpdateScheduler runs background tasks periodically to update Container or Helm Charts.
 type UpdateScheduler struct {
-	Log logr.Logger
+	gocron.Scheduler
+	log        logr.Logger
+	updateChan chan AvailableUpdate
+}
 
-	Scanner Scanner
-	Updater Updater
+func NewUpdateScheduler(
+	log logr.Logger,
+	options ...gocron.SchedulerOption,
+) (updateScheduler *UpdateScheduler, quitChan chan struct{}, err error) {
+	scheduler, err := gocron.NewScheduler(options...)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	Scheduler gocron.Scheduler
+	updater := Updater{
+		Log: log,
+	}
 
-	ErrGroup   *errgroup.Group
-	QuitChan   chan struct{}
-	UpdateChan chan AvailableUpdate
+	updateChan, quitChan := updater.ListenForUpdates(context.Background())
+
+	updateScheduler = &UpdateScheduler{
+		log:        log,
+		Scheduler:  scheduler,
+		updateChan: updateChan,
+	}
+
+	return
+}
+
+type ScheduleRequest struct {
+	ProjectUID   string
+	Scanner      Scanner
+	Repository   vcs.Repository
+	Branch       string
+	Instructions []UpdateInstruction
 }
 
 func (scheduler *UpdateScheduler) Schedule(
 	ctx context.Context,
-	projectUID string,
-	updateInstructions []UpdateInstruction,
+	request ScheduleRequest,
 ) (int, error) {
-	for _, job := range scheduler.Scheduler.Jobs() {
-		if !haveJobForInstructions(job, projectUID, updateInstructions) {
-			scheduler.Log.V(1).Info("Removing cron job", "name", job.Name())
-			if err := scheduler.Scheduler.RemoveJob(job.ID()); err != nil {
-				scheduler.Log.Error(err, "Unable to remove job", "name", job.Name())
+	for _, job := range scheduler.Jobs() {
+		if strings.HasPrefix(job.Name(), fmt.Sprintf("%s-", request.ProjectUID)) &&
+			!haveJobForInstructions(job, request.ProjectUID, request.Instructions) {
+			scheduler.log.V(1).Info("Removing cron job", "name", job.Name())
+			if err := scheduler.RemoveJob(job.ID()); err != nil {
+				scheduler.log.Error(err, "Unable to remove job", "name", job.Name())
 			}
 		}
 	}
 
-	for _, instruction := range updateInstructions {
+	for _, instruction := range request.Instructions {
 		cronJob := gocron.CronJob(instruction.Schedule, true)
 		task := gocron.NewTask(
 			scheduler.scan,
 			ctx,
 			instruction,
-			scheduler.UpdateChan,
+			request.Scanner,
+			request.Repository,
+			request.Branch,
+			scheduler.updateChan,
 		)
 
-		if err := scheduler.upsertJob(projectUID, instruction, cronJob, task); err != nil {
-			scheduler.Log.Error(err, "Unable to upsert job", "name", instruction.Target.Name())
+		if err := scheduler.upsertJob(request.ProjectUID, instruction, cronJob, task); err != nil {
+			scheduler.log.Error(err, "Unable to upsert job", "name", instruction.Target.Name())
 		}
 	}
 
-	_ = scheduler.ErrGroup.TryGo(func() error {
-		for {
-			select {
-			case availableUpdate := <-scheduler.UpdateChan:
-				_, err := scheduler.Updater.Repository.Pull()
-				if err != nil {
-					scheduler.Log.Error(
-						err,
-						"Unable to pull gitops project repository for update",
-					)
-
-					continue
-				}
-
-				_, err = scheduler.Updater.Update(ctx, availableUpdate)
-				if err != nil {
-					scheduler.Log.Error(
-						err,
-						"Unable to update version",
-						"target",
-						availableUpdate.Target.Name(),
-						"newVersion",
-						availableUpdate.NewVersion,
-						"file",
-						availableUpdate.File,
-					)
-				}
-
-			case <-scheduler.QuitChan:
-				return nil
-			}
-		}
-	})
-
-	return len(scheduler.Scheduler.Jobs()), nil
+	return len(scheduler.Jobs()), nil
 }
 
 func (scheduler *UpdateScheduler) upsertJob(
@@ -109,7 +121,7 @@ func (scheduler *UpdateScheduler) upsertJob(
 	cronJob gocron.JobDefinition,
 	task gocron.Task,
 ) error {
-	log := scheduler.Log.V(1).WithValues(
+	log := scheduler.log.V(1).WithValues(
 		"project",
 		projectUID,
 		"name",
@@ -123,13 +135,13 @@ func (scheduler *UpdateScheduler) upsertJob(
 	lineTag := keyValueTag("line", strconv.Itoa(instruction.Line))
 
 	identifiers := []gocron.JobOption{
-		gocron.WithName(instruction.Target.Name()),
+		gocron.WithName(jobName(projectUID, instruction)),
 		gocron.WithTags(
 			scheduleTag, fileTag, lineTag,
 		),
 	}
 
-	for _, job := range scheduler.Scheduler.Jobs() {
+	for _, job := range scheduler.Jobs() {
 		if job.Name() == jobName(projectUID, instruction) {
 			matchedFile := false
 			matchedLine := false
@@ -146,7 +158,7 @@ func (scheduler *UpdateScheduler) upsertJob(
 
 			if matchedFile && matchedLine {
 				log.Info("Updating cron job")
-				if _, err := scheduler.Scheduler.Update(
+				if _, err := scheduler.Update(
 					job.ID(),
 					cronJob,
 					task,
@@ -162,7 +174,7 @@ func (scheduler *UpdateScheduler) upsertJob(
 
 	log.Info("Adding cron job")
 
-	_, err := scheduler.Scheduler.NewJob(
+	_, err := scheduler.NewJob(
 		cronJob,
 		task,
 		identifiers...,
@@ -210,12 +222,15 @@ func haveJobForInstructions(
 func (scheduler *UpdateScheduler) scan(
 	ctx context.Context,
 	instruction UpdateInstruction,
+	scanner Scanner,
+	repository vcs.Repository,
+	branch string,
 	updateChan chan<- AvailableUpdate,
 ) {
-	log := scheduler.Log.V(1).WithValues("target", instruction.Target.Name())
+	log := scheduler.log.V(1).WithValues("target", instruction.Target.Name())
 	log.Info("Scanning for version updates")
 
-	availableUpdate, hasUpdate, err := scheduler.Scanner.Scan(ctx, instruction)
+	imageScan, hasUpdate, err := scanner.Scan(ctx, instruction)
 	if err != nil {
 		log.Error(
 			err,
@@ -224,7 +239,15 @@ func (scheduler *UpdateScheduler) scan(
 	}
 
 	if hasUpdate {
-		updateChan <- *availableUpdate
+		updateChan <- AvailableUpdate{
+			Repository:  repository,
+			Branch:      branch,
+			ImageScan:   *imageScan,
+			Integration: instruction.Integration,
+			File:        instruction.File,
+			Line:        instruction.Line,
+			Target:      instruction.Target,
+		}
 	}
 }
 

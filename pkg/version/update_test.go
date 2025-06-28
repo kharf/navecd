@@ -61,11 +61,13 @@ image: "myimage:1.15.0@sha256:sha256:2d93689cbcdda92b425bfd82f87f5b656791a8a3e96
 image: "myimage:1.16.5@sha256:digest"
 `,
 		haveAvailableUpdate: version.AvailableUpdate{
-			CurrentVersion: "1.15.0@sha256:sha256:2d93689cbcdda92b425bfd82f87f5b656791a8a3e96c8eb2d702c6698987629a",
-			NewVersion:     "1.16.5@sha256:digest",
-			Integration:    version.Direct,
-			File:           "apps/myapp.cue",
-			Line:           1,
+			ImageScan: version.ImageScan{
+				CurrentVersion: "1.15.0@sha256:sha256:2d93689cbcdda92b425bfd82f87f5b656791a8a3e96c8eb2d702c6698987629a",
+				NewVersion:     "1.16.5@sha256:digest",
+			},
+			Integration: version.Direct,
+			File:        "apps/myapp.cue",
+			Line:        1,
 			Target: &version.ContainerUpdateTarget{
 				Image: "myimage:1.15.0@sha256:sha256:2d93689cbcdda92b425bfd82f87f5b656791a8a3e96c8eb2d702c6698987629a",
 				UnstructuredNode: map[string]any{
@@ -92,11 +94,13 @@ image: "myimage:1.14.0"
 image: "myimage:1.14.0"
 `,
 		haveAvailableUpdate: version.AvailableUpdate{
-			CurrentVersion: "1.14.0",
-			NewVersion:     "1.15.0",
-			Integration:    version.PR,
-			File:           "apps/myapp.cue",
-			Line:           1,
+			ImageScan: version.ImageScan{
+				CurrentVersion: "1.14.0",
+				NewVersion:     "1.15.0",
+			},
+			Integration: version.PR,
+			File:        "apps/myapp.cue",
+			Line:        1,
 			Target: &version.ContainerUpdateTarget{
 				Image: "myimage:1.14.0",
 				UnstructuredNode: map[string]any{
@@ -136,11 +140,13 @@ image: "myimage:1.15.0"
 `,
 		},
 		haveAvailableUpdate: version.AvailableUpdate{
-			CurrentVersion: "1.14.0",
-			NewVersion:     "1.15.0",
-			Integration:    version.PR,
-			File:           "apps/myapp.cue",
-			Line:           1,
+			ImageScan: version.ImageScan{
+				CurrentVersion: "1.14.0",
+				NewVersion:     "1.15.0",
+			},
+			Integration: version.PR,
+			File:        "apps/myapp.cue",
+			Line:        1,
 			Target: &version.ContainerUpdateTarget{
 				Image: "myimage:1.14.0",
 				UnstructuredNode: map[string]any{
@@ -164,11 +170,13 @@ image: "myimage:1.15.0"
 image: "myimage:1.15.0"
 `,
 		haveAvailableUpdate: version.AvailableUpdate{
-			CurrentVersion: "1.14.0",
-			NewVersion:     "1.15.0",
-			Integration:    version.PR,
-			File:           "apps/myapp.cue",
-			Line:           1,
+			ImageScan: version.ImageScan{
+				CurrentVersion: "1.14.0",
+				NewVersion:     "1.15.0",
+			},
+			Integration: version.PR,
+			File:        "apps/myapp.cue",
+			Line:        1,
 			Target: &version.ContainerUpdateTarget{
 				Image: "myimage:1.14.0",
 				UnstructuredNode: map[string]any{
@@ -202,11 +210,13 @@ image: "myimage:1.14.0"
 			BaseBranch: "main",
 		},
 		haveAvailableUpdate: version.AvailableUpdate{
-			CurrentVersion: "1.14.0",
-			NewVersion:     "1.15.0",
-			Integration:    version.PR,
-			File:           "apps/myapp.cue",
-			Line:           1,
+			ImageScan: version.ImageScan{
+				CurrentVersion: "1.14.0",
+				NewVersion:     "1.15.0",
+			},
+			Integration: version.PR,
+			File:        "apps/myapp.cue",
+			Line:        1,
 			Target: &version.ContainerUpdateTarget{
 				Image: "myimage:1.14.0",
 				UnstructuredNode: map[string]any{
@@ -295,10 +305,11 @@ func runUpdateTestCase(t *testing.T, ctx context.Context, tc updateTestCase) {
 	log := zap.New(zap.UseFlagOptions(&logOpts))
 
 	updater := &version.Updater{
-		Log:        log,
-		Repository: vcsRepository,
-		Branch:     "main",
+		Log: log,
 	}
+
+	tc.haveAvailableUpdate.Repository = vcsRepository
+	tc.haveAvailableUpdate.Branch = "main"
 
 	update, err := updater.Update(ctx, tc.haveAvailableUpdate)
 	if tc.wantErr != "" {
