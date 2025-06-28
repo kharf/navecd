@@ -56,7 +56,7 @@ type scanTestCase struct {
 	haveRemoteChartVersions map[string][]string
 	haveRemoteURLs          map[string]string
 	haveRemoteChartURLs     map[string]string
-	wantAvailableUpdate     *version.AvailableUpdate
+	wantImageScan           *version.ImageScan
 	wantErr                 string
 }
 
@@ -83,19 +83,10 @@ var (
 		haveRemoteURLs: map[string]string{
 			"myimage": "https://test",
 		},
-		wantAvailableUpdate: &version.AvailableUpdate{
+		wantImageScan: &version.ImageScan{
 			CurrentVersion: "1.15.0@sha256:1ff6c18fbef2045af6b9c16bf034cc421a29027b800e4f9b68ae9b1cb3e9ae07",
 			NewVersion:     "1.16.5@sha256:2d93689cbcdda92b425bfd82f87f5b656791a8a3e96c8eb2d702c6698987629a",
-			File:           "myfile",
-			Line:           5,
-			Target: &version.ContainerUpdateTarget{
-				Image: "myimage:1.15.0@sha256:1ff6c18fbef2045af6b9c16bf034cc421a29027b800e4f9b68ae9b1cb3e9ae07",
-				UnstructuredNode: map[string]any{
-					"image": "myimage:1.15.0@sha256:1ff6c18fbef2045af6b9c16bf034cc421a29027b800e4f9b68ae9b1cb3e9ae07",
-				},
-				UnstructuredKey: "image",
-			},
-			URL: "https://test",
+			URL:            "https://test",
 		},
 	}
 
@@ -122,20 +113,10 @@ var (
 		haveRemoteURLs: map[string]string{
 			"mychart": "https://test",
 		},
-		wantAvailableUpdate: &version.AvailableUpdate{
+		wantImageScan: &version.ImageScan{
 			CurrentVersion: "1.15.0@sha256:1ff6c18fbef2045af6b9c16bf034cc421a29027b800e4f9b68ae9b1cb3e9ae07",
 			NewVersion:     "1.16.5@sha256:2d93689cbcdda92b425bfd82f87f5b656791a8a3e96c8eb2d702c6698987629a",
-			File:           "myfile",
-			Line:           5,
-			Target: &version.ChartUpdateTarget{
-				Chart: &helm.Chart{
-					Name:    "mychart",
-					RepoURL: "oci://",
-					Version: "1.15.0@sha256:1ff6c18fbef2045af6b9c16bf034cc421a29027b800e4f9b68ae9b1cb3e9ae07",
-					Auth:    nil,
-				},
-			},
-			URL: "https://test",
+			URL:            "https://test",
 		},
 	}
 
@@ -163,21 +144,10 @@ var (
 		haveRemoteChartURLs: map[string]string{
 			"mychart": "https://test2",
 		},
-		wantAvailableUpdate: &version.AvailableUpdate{
+		wantImageScan: &version.ImageScan{
 			CurrentVersion: "1.15.0@bbbb",
 			NewVersion:     "1.16.5@cccc",
-			File:           "myfile",
-			Line:           5,
-			Integration:    version.Direct,
-			Target: &version.ChartUpdateTarget{
-				Chart: &helm.Chart{
-					Name:    "mychart",
-					RepoURL: "https://",
-					Version: "1.15.0@bbbb",
-					Auth:    nil,
-				},
-			},
-			URL: "https://test2",
+			URL:            "https://test2",
 		},
 	}
 
@@ -219,18 +189,9 @@ var (
 		haveRemoteVersions: map[string][]string{
 			"myimage": {"1.14.0", "1.15.1", "1.15.2", "1.16.5", "other", "latest"},
 		},
-		wantAvailableUpdate: &version.AvailableUpdate{
+		wantImageScan: &version.ImageScan{
 			CurrentVersion: "1.15.0",
 			NewVersion:     "1.16.5",
-			File:           "myfile",
-			Line:           5,
-			Target: &version.ContainerUpdateTarget{
-				Image: "myimage:1.15.0",
-				UnstructuredNode: map[string]any{
-					"image": "myimage:1.15.0",
-				},
-				UnstructuredKey: "image",
-			},
 		},
 	}
 
@@ -263,18 +224,9 @@ var (
 		haveRemoteChartVersions: map[string][]string{
 			"mychart": {"1.14.0", "1.15.1", "1.15.2", "1.16.5", "other", "latest"},
 		},
-		wantAvailableUpdate: &version.AvailableUpdate{
+		wantImageScan: &version.ImageScan{
 			CurrentVersion: "1.15.0",
 			NewVersion:     "1.16.5",
-			File:           "myfile",
-			Line:           5,
-			Target: &version.ContainerUpdateTarget{
-				Image: "myimage:1.15.0",
-				UnstructuredNode: map[string]any{
-					"image": "myimage:1.15.0",
-				},
-				UnstructuredKey: "image",
-			},
 		},
 	}
 
@@ -307,18 +259,9 @@ var (
 		haveRemoteChartVersions: map[string][]string{
 			"mychart": {"1.14.0", "1.15.1", "1.15.2", "1.16.5", "other", "latest"},
 		},
-		wantAvailableUpdate: &version.AvailableUpdate{
+		wantImageScan: &version.ImageScan{
 			CurrentVersion: "1.15.0",
 			NewVersion:     "1.16.5",
-			File:           "myfile",
-			Line:           5,
-			Target: &version.ContainerUpdateTarget{
-				Image: "myimage:1.15.0",
-				UnstructuredNode: map[string]any{
-					"image": "myimage:1.15.0",
-				},
-				UnstructuredKey: "image",
-			},
 		},
 	}
 
@@ -351,18 +294,9 @@ var (
 		haveRemoteChartVersions: map[string][]string{
 			"mychart": {"1.14.0", "1.15.1", "1.15.2", "1.16.5", "other", "latest"},
 		},
-		wantAvailableUpdate: &version.AvailableUpdate{
+		wantImageScan: &version.ImageScan{
 			CurrentVersion: "1.15.0",
 			NewVersion:     "1.16.5",
-			File:           "myfile",
-			Line:           5,
-			Target: &version.ContainerUpdateTarget{
-				Image: "myimage:1.15.0",
-				UnstructuredNode: map[string]any{
-					"image": "myimage:1.15.0",
-				},
-				UnstructuredKey: "image",
-			},
 		},
 	}
 
@@ -404,23 +338,9 @@ var (
 		haveRemoteChartVersions: map[string][]string{
 			"mychart": {"1.14.0", "1.15.1", "1.15.2", "1.16.5", "other", "latest"},
 		},
-		wantAvailableUpdate: &version.AvailableUpdate{
+		wantImageScan: &version.ImageScan{
 			CurrentVersion: "1.15.0",
 			NewVersion:     "1.16.5",
-			File:           "myfile",
-			Line:           5,
-			Target: &version.ChartUpdateTarget{
-				Chart: &helm.Chart{
-					Name:    "mychart",
-					RepoURL: "https://",
-					Version: "1.15.0",
-					Auth: &cloud.Auth{
-						SecretRef: &cloud.SecretRef{
-							Name: "creds",
-						},
-					},
-				},
-			},
 		},
 	}
 
@@ -856,14 +776,11 @@ func runScanTestCase(
 			// navecd:abcd
 			if auth[0] != expectedCreds {
 				w.WriteHeader(401)
-				_, _ = w.Write(
-					[]byte(
-						fmt.Sprintf(
-							"wrong credentials: got %s, expected %s",
-							auth[0],
-							expectedCreds,
-						),
-					),
+				_, _ = fmt.Fprintf(
+					w,
+					"wrong credentials: got %s, expected %s",
+					auth[0],
+					expectedCreds,
 				)
 				return
 			}
@@ -917,22 +834,21 @@ func runScanTestCase(
 		helmServer,
 		aws,
 	)
-	availableUpdate, hasUpdate, err := scanner.Scan(ctx, patchedInstruction)
+	imageScan, hasUpdate, err := scanner.Scan(ctx, patchedInstruction)
 	if tc.wantErr != "" {
 		assert.ErrorContains(t, err, tc.wantErr)
 		return
 	}
 	assert.NilError(t, err)
 
-	if tc.wantAvailableUpdate == nil {
-		assert.Assert(t, availableUpdate == nil)
+	if tc.wantImageScan == nil {
 		assert.Equal(t, hasUpdate, false)
 		return
 	}
 
-	assert.Assert(t, availableUpdate != nil)
+	assert.Assert(t, imageScan != nil)
 
-	assert.DeepEqual(t, unpatchAvailableUpdate(*availableUpdate), *tc.wantAvailableUpdate)
+	assert.DeepEqual(t, *imageScan, *tc.wantImageScan)
 }
 
 func patchInstruction(
@@ -997,31 +913,4 @@ func patchInstruction(
 	}
 
 	return patchedInstruction
-}
-
-func unpatchAvailableUpdate(
-	availableUpdate version.AvailableUpdate,
-) version.AvailableUpdate {
-	unpatchedAvailableUpdate := availableUpdate
-
-	switch target := availableUpdate.Target.(type) {
-	case *version.ContainerUpdateTarget:
-		split := strings.Split(target.Image, "/")
-		unpatchedImage := split[1]
-
-		target.Image = unpatchedImage
-		target.UnstructuredNode[target.UnstructuredKey] = unpatchedImage
-
-		unpatchedAvailableUpdate.Target = target
-
-	case *version.ChartUpdateTarget:
-		if registry.IsOCI(target.Chart.RepoURL) {
-			target.Chart.RepoURL = "oci://"
-		} else {
-			target.Chart.RepoURL = "https://"
-		}
-		unpatchedAvailableUpdate.Target = target
-	}
-
-	return unpatchedAvailableUpdate
 }

@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/go-co-op/gocron/v2"
 	"github.com/go-logr/logr"
 	gitops "github.com/kharf/navecd/api/v1beta1"
 	"github.com/kharf/navecd/pkg/component"
@@ -29,7 +28,6 @@ import (
 	"github.com/kharf/navecd/pkg/kube"
 	"github.com/kharf/navecd/pkg/vcs"
 	"github.com/kharf/navecd/pkg/version"
-	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/rest"
 )
 
@@ -69,11 +67,8 @@ type Reconciler struct {
 	// Namespace the controller runs in.
 	Namespace string
 
-	// Cron scheduler running in the background scanning for image updates.
-	Scheduler           gocron.Scheduler
-	SchedulerQuitChan   chan struct{}
-	SchedulerUpdateChan chan version.AvailableUpdate
-	SchedulerErrGroup   *errgroup.Group
+	// UpdateScheduler runs background tasks periodically to update Container or Helm Charts.
+	UpdateScheduler *version.UpdateScheduler
 }
 
 // ReconcileResult reports the outcome and metadata of a reconciliation.
@@ -221,25 +216,17 @@ func (reconciler *Reconciler) Reconcile(
 			return
 		}
 
-		updateScheduler := version.UpdateScheduler{
-			Log:       log,
-			Scheduler: reconciler.Scheduler,
+		if _, err := reconciler.UpdateScheduler.Schedule(ctx, version.ScheduleRequest{
+			ProjectUID: projectUID,
 			Scanner: version.Scanner{
 				Log:        log,
 				KubeClient: kubeDynamicClient.DynamicClient(),
 				Namespace:  reconciler.Namespace,
 			},
-			Updater: version.Updater{
-				Log:        log,
-				Repository: updateRepository,
-				Branch:     gProject.Spec.Branch,
-			},
-			QuitChan:   reconciler.SchedulerQuitChan,
-			UpdateChan: reconciler.SchedulerUpdateChan,
-			ErrGroup:   reconciler.SchedulerErrGroup,
-		}
-
-		if _, err := updateScheduler.Schedule(ctx, projectUID, projectInstance.UpdateInstructions); err != nil {
+			Repository:   updateRepository,
+			Branch:       gProject.Spec.Branch,
+			Instructions: projectInstance.UpdateInstructions,
+		}); err != nil {
 			log.Error(err, "Unable to update update scheduler")
 		}
 	}()

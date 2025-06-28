@@ -26,6 +26,7 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-logr/logr"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kharf/navecd/pkg/cloud"
 	"github.com/kharf/navecd/pkg/helm"
@@ -152,9 +153,55 @@ func UpdateCommitMessage(targetName, newVersion string) string {
 // Updater accepts update information that tell which images to update.
 // It pushes its changes to remote before returning.
 type Updater struct {
-	Log        logr.Logger
-	Repository vcs.Repository
-	Branch     string
+	Log logr.Logger
+}
+
+func (updater *Updater) ListenForUpdates(
+	ctx context.Context,
+) (chan AvailableUpdate, chan struct{}) {
+	eg := &errgroup.Group{}
+	eg.SetLimit(1)
+	quitChan := make(chan struct{}, 1)
+	updateChan := make(chan AvailableUpdate, 50)
+	_ = eg.TryGo(func() error {
+		for {
+			select {
+			case availableUpdate := <-updateChan:
+				updater := Updater{
+					Log: updater.Log,
+				}
+
+				_, err := availableUpdate.Repository.Pull()
+				if err != nil {
+					updater.Log.Error(
+						err,
+						"Unable to pull gitops project repository for update",
+					)
+
+					continue
+				}
+
+				_, err = updater.Update(ctx, availableUpdate)
+				if err != nil {
+					updater.Log.Error(
+						err,
+						"Unable to update version",
+						"target",
+						availableUpdate.Target.Name(),
+						"newVersion",
+						availableUpdate.ImageScan.NewVersion,
+						"file",
+						availableUpdate.File,
+					)
+				}
+
+			case <-quitChan:
+				return nil
+			}
+		}
+	})
+
+	return updateChan, quitChan
 }
 
 // Update accepts available updates that tell which images or chart to update and returns update results.
@@ -163,19 +210,19 @@ func (updater *Updater) Update(
 	ctx context.Context,
 	availableUpdate AvailableUpdate,
 ) (*Update, error) {
-	if availableUpdate.CurrentVersion == availableUpdate.NewVersion {
+	if availableUpdate.ImageScan.CurrentVersion == availableUpdate.ImageScan.NewVersion {
 		return nil, nil
 	}
 
 	targetName := availableUpdate.Target.Name()
 
-	commitMessage := UpdateCommitMessage(targetName, availableUpdate.NewVersion)
+	commitMessage := UpdateCommitMessage(targetName, availableUpdate.ImageScan.NewVersion)
 
 	log := updater.Log.WithValues(
 		"target",
 		targetName,
 		"newVersion",
-		availableUpdate.NewVersion,
+		availableUpdate.ImageScan.NewVersion,
 		"file",
 		availableUpdate.File,
 	)
@@ -210,7 +257,7 @@ func (updater *Updater) Update(
 			return nil, nil
 		}
 
-		if err := updater.Repository.Push(updater.Branch, updater.Branch); err != nil &&
+		if err := availableUpdate.Repository.Push(availableUpdate.Branch, availableUpdate.Branch); err != nil &&
 			!errors.Is(err, git.NoErrAlreadyUpToDate) {
 			updater.Log.Error(err, "Unable to push updates")
 		}
@@ -218,7 +265,7 @@ func (updater *Updater) Update(
 		return update, nil
 	}
 
-	if err := updater.Repository.SwitchBranch(updater.Branch, false); err != nil {
+	if err := availableUpdate.Repository.SwitchBranch(availableUpdate.Branch, false); err != nil {
 		// return error, because we can't proceed with updates on the wrong branch.
 		return nil, err
 	}
@@ -232,12 +279,12 @@ func (updater *Updater) createPR(
 	availableUpdate AvailableUpdate,
 ) (*Update, error) {
 	srcBranch := fmt.Sprintf("navecd/update-%s", targetName)
-	if err := updater.Repository.SwitchBranch(srcBranch, true); err != nil {
+	if err := availableUpdate.Repository.SwitchBranch(srcBranch, true); err != nil {
 		return nil, err
 	}
 
 	defer func() {
-		if err := updater.Repository.DeleteLocalBranch(srcBranch); err != nil {
+		if err := availableUpdate.Repository.DeleteLocalBranch(srcBranch); err != nil {
 			updater.Log.Error(err, "Unable to delete local branch", "branch", srcBranch)
 		}
 	}()
@@ -251,7 +298,7 @@ func (updater *Updater) createPR(
 		return nil, nil
 	}
 
-	if err := updater.Repository.Push(srcBranch, srcBranch); err != nil &&
+	if err := availableUpdate.Repository.Push(srcBranch, srcBranch); err != nil &&
 		!errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return nil, err
 	}
@@ -260,7 +307,7 @@ func (updater *Updater) createPR(
 		return nil, nil
 	}
 
-	if err := updater.Repository.CreatePullRequest(commitMessage, availableUpdate.URL, srcBranch, updater.Branch); err != nil {
+	if err := availableUpdate.Repository.CreatePullRequest(commitMessage, availableUpdate.ImageScan.URL, srcBranch, availableUpdate.Branch); err != nil {
 		return nil, err
 	}
 
@@ -276,7 +323,7 @@ func (updater *Updater) update(
 		return nil, err
 	}
 
-	hash, err := updater.Repository.Commit(availableUpdate.File,
+	hash, err := availableUpdate.Repository.Commit(availableUpdate.File,
 		commitMessage,
 	)
 	if err != nil {
@@ -285,14 +332,14 @@ func (updater *Updater) update(
 
 	return &Update{
 		CommitHash: hash,
-		NewVersion: availableUpdate.NewVersion,
+		NewVersion: availableUpdate.ImageScan.NewVersion,
 	}, nil
 }
 
 func (updater *Updater) updateVersion(
 	availableUpdate AvailableUpdate,
 ) error {
-	dstFilePath := filepath.Join(updater.Repository.Path(), availableUpdate.File)
+	dstFilePath := filepath.Join(availableUpdate.Repository.Path(), availableUpdate.File)
 	file, err := os.Open(dstFilePath)
 	if err != nil {
 		return err
@@ -316,8 +363,8 @@ func (updater *Updater) updateVersion(
 		if currLineNumber == availableUpdate.Line {
 			newValue := strings.Replace(
 				availableUpdate.Target.GetStructValue(),
-				availableUpdate.CurrentVersion,
-				availableUpdate.NewVersion,
+				availableUpdate.ImageScan.CurrentVersion,
+				availableUpdate.ImageScan.NewVersion,
 				1,
 			)
 			currLine = strings.Replace(

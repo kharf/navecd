@@ -56,9 +56,9 @@ type Scanner struct {
 	GCPMetadataServerURL string
 }
 
-// AvailableUpdate represents the result of a positive version scanning operation.
-// It holds details about the current and new version, as well as the file and line at which these versions were found and the desired update integration method.
-type AvailableUpdate struct {
+// ImageScan represents the result of a version scanning operation.
+// It holds details about the current and new version.
+type ImageScan struct {
 	// The current version that is being scanned for updates.
 	// Format: tag@digest.
 	// Digest is optional.
@@ -67,16 +67,6 @@ type AvailableUpdate struct {
 	// Format: tag@digest.
 	// Digest is optional.
 	NewVersion string
-
-	// Integration defines the method on how to push updates to the version control system.
-	Integration UpdateIntegration
-
-	// File where the versions were found.
-	File string
-	// Line number within the file where the versions were found.
-	Line   int
-	Target UpdateTarget
-
 	// URL to find more information on the update/package.
 	URL string
 }
@@ -84,7 +74,7 @@ type AvailableUpdate struct {
 func (scanner *Scanner) Scan(
 	ctx context.Context,
 	updateInstr UpdateInstruction,
-) (*AvailableUpdate, bool, error) {
+) (*ImageScan, bool, error) {
 	strategy := getStrategy(updateInstr.Strategy, updateInstr.Constraint)
 
 	scanResult, err := scanner.scanTarget(ctx, updateInstr.Target, updateInstr.Auth)
@@ -114,14 +104,10 @@ func (scanner *Scanner) Scan(
 		currentVersion = fmt.Sprintf("%s@%s", currentVersion, scanResult.currentDigest)
 	}
 
-	return &AvailableUpdate{
+	return &ImageScan{
 		URL:            pkgMetadata.infoURL,
 		CurrentVersion: currentVersion,
 		NewVersion:     newVersion,
-		Integration:    updateInstr.Integration,
-		File:           updateInstr.File,
-		Line:           updateInstr.Line,
-		Target:         updateInstr.Target,
 	}, true, nil
 }
 

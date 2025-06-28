@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"cuelabs.dev/go/oci/ociregistry"
-	"github.com/go-co-op/gocron/v2"
 	"github.com/go-git/go-git/v5"
 	gitops "github.com/kharf/navecd/api/v1beta1"
 	"github.com/kharf/navecd/internal/cloudtest"
@@ -45,7 +44,6 @@ import (
 	"github.com/kharf/navecd/pkg/project"
 	"github.com/kharf/navecd/pkg/version"
 	"github.com/opencontainers/go-digest"
-	"golang.org/x/sync/errgroup"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
 	"gotest.tools/v3/poll"
@@ -399,15 +397,12 @@ func TestReconciler_Reconcile(t *testing.T) {
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, err := gocron.NewScheduler()
+	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
 	assert.NilError(t, err)
 	scheduler.Start()
-	quitChan := make(chan struct{}, 1)
-	schedulerEg := &errgroup.Group{}
-	schedulerEg.SetLimit(1)
 	defer func() {
+		scheduler.Shutdown()
 		quitChan <- struct{}{}
-		_ = scheduler.Shutdown()
 	}()
 
 	reconciler := project.Reconciler{
@@ -420,10 +415,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		Scheduler:             scheduler,
-		SchedulerQuitChan:     quitChan,
-		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
-		SchedulerErrGroup:     schedulerEg,
+		UpdateScheduler:       scheduler,
 	}
 
 	suspend := false
@@ -802,14 +794,12 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, err := gocron.NewScheduler()
+	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
 	assert.NilError(t, err)
-	quitChan := make(chan struct{}, 1)
-	schedulerEg := &errgroup.Group{}
-	schedulerEg.SetLimit(1)
+	scheduler.Start()
 	defer func() {
+		scheduler.Shutdown()
 		quitChan <- struct{}{}
-		_ = scheduler.Shutdown()
 	}()
 
 	reconciler := project.Reconciler{
@@ -822,10 +812,7 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		Scheduler:             scheduler,
-		SchedulerQuitChan:     quitChan,
-		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
-		SchedulerErrGroup:     schedulerEg,
+		UpdateScheduler:       scheduler,
 	}
 
 	suspend := false
@@ -986,14 +973,12 @@ func TestReconciler_Reconcile_GitPullError(t *testing.T) {
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, err := gocron.NewScheduler()
+	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
 	assert.NilError(t, err)
-	quitChan := make(chan struct{}, 1)
-	schedulerEg := &errgroup.Group{}
-	schedulerEg.SetLimit(1)
+	scheduler.Start()
 	defer func() {
+		scheduler.Shutdown()
 		quitChan <- struct{}{}
-		_ = scheduler.Shutdown()
 	}()
 
 	reconciler := project.Reconciler{
@@ -1006,10 +991,7 @@ func TestReconciler_Reconcile_GitPullError(t *testing.T) {
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		Scheduler:             scheduler,
-		SchedulerQuitChan:     quitChan,
-		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
-		SchedulerErrGroup:     schedulerEg,
+		UpdateScheduler:       scheduler,
 	}
 
 	suspend := false
@@ -1123,14 +1105,12 @@ func TestReconciler_Reconcile_ComponentError(t *testing.T) {
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, err := gocron.NewScheduler()
+	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
 	assert.NilError(t, err)
-	quitChan := make(chan struct{}, 1)
-	schedulerEg := &errgroup.Group{}
-	schedulerEg.SetLimit(1)
+	scheduler.Start()
 	defer func() {
+		scheduler.Shutdown()
 		quitChan <- struct{}{}
-		_ = scheduler.Shutdown()
 	}()
 
 	reconciler := project.Reconciler{
@@ -1143,10 +1123,7 @@ func TestReconciler_Reconcile_ComponentError(t *testing.T) {
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		Scheduler:             scheduler,
-		SchedulerQuitChan:     quitChan,
-		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
-		SchedulerErrGroup:     schedulerEg,
+		UpdateScheduler:       scheduler,
 	}
 
 	suspend := false
@@ -1362,15 +1339,12 @@ func TestReconciler_Reconcile_WorkloadIdentity(t *testing.T) {
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, err := gocron.NewScheduler()
+	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
 	assert.NilError(t, err)
 	scheduler.Start()
-	quitChan := make(chan struct{}, 1)
-	schedulerEg := &errgroup.Group{}
-	schedulerEg.SetLimit(1)
 	defer func() {
+		scheduler.Shutdown()
 		quitChan <- struct{}{}
-		_ = scheduler.Shutdown()
 	}()
 
 	reconciler := project.Reconciler{
@@ -1383,10 +1357,7 @@ func TestReconciler_Reconcile_WorkloadIdentity(t *testing.T) {
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		Scheduler:             scheduler,
-		SchedulerQuitChan:     quitChan,
-		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
-		SchedulerErrGroup:     schedulerEg,
+		UpdateScheduler:       scheduler,
 	}
 
 	suspend := false
@@ -1647,14 +1618,12 @@ func TestReconciler_Reconcile_Conflict(t *testing.T) {
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, err := gocron.NewScheduler()
+	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
 	assert.NilError(t, err)
-	quitChan := make(chan struct{}, 1)
-	schedulerEg := &errgroup.Group{}
-	schedulerEg.SetLimit(1)
+	scheduler.Start()
 	defer func() {
+		scheduler.Shutdown()
 		quitChan <- struct{}{}
-		_ = scheduler.Shutdown()
 	}()
 
 	reconciler := project.Reconciler{
@@ -1667,10 +1636,7 @@ func TestReconciler_Reconcile_Conflict(t *testing.T) {
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		Scheduler:             scheduler,
-		SchedulerQuitChan:     quitChan,
-		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
-		SchedulerErrGroup:     schedulerEg,
+		UpdateScheduler:       scheduler,
 	}
 
 	suspend := false
@@ -1841,14 +1807,12 @@ func TestReconciler_Reconcile_IgnoreConflicts(t *testing.T) {
 
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, err := gocron.NewScheduler()
+	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
 	assert.NilError(t, err)
-	quitChan := make(chan struct{}, 1)
-	schedulerEg := &errgroup.Group{}
-	schedulerEg.SetLimit(1)
+	scheduler.Start()
 	defer func() {
+		scheduler.Shutdown()
 		quitChan <- struct{}{}
-		_ = scheduler.Shutdown()
 	}()
 
 	reconciler := project.Reconciler{
@@ -1861,10 +1825,7 @@ func TestReconciler_Reconcile_IgnoreConflicts(t *testing.T) {
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		Scheduler:             scheduler,
-		SchedulerQuitChan:     quitChan,
-		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
-		SchedulerErrGroup:     schedulerEg,
+		UpdateScheduler:       scheduler,
 	}
 
 	suspend := false
@@ -1987,14 +1948,12 @@ func TestReconciler_Reconcile_Stage(t *testing.T) {
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, err := gocron.NewScheduler()
+	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
 	assert.NilError(t, err)
-	quitChan := make(chan struct{}, 1)
-	schedulerEg := &errgroup.Group{}
-	schedulerEg.SetLimit(1)
+	scheduler.Start()
 	defer func() {
+		scheduler.Shutdown()
 		quitChan <- struct{}{}
-		_ = scheduler.Shutdown()
 	}()
 
 	reconciler := project.Reconciler{
@@ -2007,10 +1966,7 @@ func TestReconciler_Reconcile_Stage(t *testing.T) {
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		Scheduler:             scheduler,
-		SchedulerQuitChan:     quitChan,
-		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
-		SchedulerErrGroup:     schedulerEg,
+		UpdateScheduler:       scheduler,
 	}
 
 	suspend := false
