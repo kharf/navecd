@@ -40,10 +40,11 @@ type UpdateScheduler struct {
 
 func (scheduler *UpdateScheduler) Schedule(
 	ctx context.Context,
+	projectUID string,
 	updateInstructions []UpdateInstruction,
 ) (int, error) {
 	for _, job := range scheduler.Scheduler.Jobs() {
-		if !haveJobForInstructions(job, updateInstructions) {
+		if !haveJobForInstructions(job, projectUID, updateInstructions) {
 			scheduler.Log.V(1).Info("Removing cron job", "name", job.Name())
 			if err := scheduler.Scheduler.RemoveJob(job.ID()); err != nil {
 				scheduler.Log.Error(err, "Unable to remove job", "name", job.Name())
@@ -60,7 +61,7 @@ func (scheduler *UpdateScheduler) Schedule(
 			scheduler.UpdateChan,
 		)
 
-		if err := scheduler.upsertJob(instruction, cronJob, task); err != nil {
+		if err := scheduler.upsertJob(projectUID, instruction, cronJob, task); err != nil {
 			scheduler.Log.Error(err, "Unable to upsert job", "name", instruction.Target.Name())
 		}
 	}
@@ -103,11 +104,14 @@ func (scheduler *UpdateScheduler) Schedule(
 }
 
 func (scheduler *UpdateScheduler) upsertJob(
+	projectUID string,
 	instruction UpdateInstruction,
 	cronJob gocron.JobDefinition,
 	task gocron.Task,
 ) error {
 	log := scheduler.Log.V(1).WithValues(
+		"project",
+		projectUID,
 		"name",
 		instruction.Target.Name(),
 		"schedule",
@@ -126,7 +130,7 @@ func (scheduler *UpdateScheduler) upsertJob(
 	}
 
 	for _, job := range scheduler.Scheduler.Jobs() {
-		if job.Name() == instruction.Target.Name() {
+		if job.Name() == jobName(projectUID, instruction) {
 			matchedFile := false
 			matchedLine := false
 
@@ -171,12 +175,16 @@ func keyValueTag(key, value string) string {
 	return fmt.Sprintf("%s:%s", key, value)
 }
 
-func haveJobForInstructions(job gocron.Job, updateInstructions []UpdateInstruction) bool {
+func haveJobForInstructions(
+	job gocron.Job,
+	projectUID string,
+	updateInstructions []UpdateInstruction,
+) bool {
 	for _, instruction := range updateInstructions {
 		fileTag := keyValueTag("file", instruction.File)
 		lineTag := keyValueTag("line", strconv.Itoa(instruction.Line))
 
-		if job.Name() == instruction.Target.Name() {
+		if job.Name() == jobName(projectUID, instruction) {
 			matchedFile := false
 			matchedLine := false
 
@@ -218,4 +226,8 @@ func (scheduler *UpdateScheduler) scan(
 	if hasUpdate {
 		updateChan <- *availableUpdate
 	}
+}
+
+func jobName(projectUID string, instruction UpdateInstruction) string {
+	return fmt.Sprintf("%s-%s", projectUID, instruction.Target.Name())
 }

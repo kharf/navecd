@@ -734,6 +734,53 @@ ns: component.#Manifest & {
 `, testtemplates.ModuleVersion)
 }
 
+func useStageTemplate() string {
+	return fmt.Sprintf(`
+-- cue.mod/module.cue --
+module: "github.com/kharf/navecd/internal/projecttest/mini@v0"
+language: version: "%s"
+deps: {
+	"github.com/kharf/navecd/schema@v0": {
+		v: "v0.0.99"
+	}
+}
+
+-- dev/infra/toola/namespace.cue --
+package toola
+
+import (
+	"github.com/kharf/navecd/schema/component"
+)
+
+#namespace: {
+	apiVersion: "v1"
+	kind:       "Namespace"
+	metadata: name: "toola"
+}
+
+ns: component.#Manifest & {
+	content: #namespace
+}
+
+-- int/infra/toolb/namespace.cue --
+package toolb
+
+import (
+	"github.com/kharf/navecd/schema/component"
+)
+
+#namespace: {
+	apiVersion: "v1"
+	kind:       "Namespace"
+	metadata: name: "toolb"
+}
+
+ns: component.#Manifest & {
+	content: #namespace
+}
+`, testtemplates.ModuleVersion)
+}
+
 func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 	ctx := context.Background()
 	dnsServer, err := dnstest.NewDNSServer()
@@ -818,19 +865,6 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name: "tenant",
-		},
-	}
-
-	err = kubernetes.TestKubeClient.Create(ctx, &namespace)
-	assert.NilError(t, err)
-
-	namespace = corev1.Namespace{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: "",
-			Kind:       "Namespace",
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: "monitoring",
 		},
 	}
 
@@ -1004,19 +1038,6 @@ func TestReconciler_Reconcile_GitPullError(t *testing.T) {
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name: "tenant",
-		},
-	}
-
-	err = kubernetes.TestKubeClient.Create(ctx, &namespace)
-	assert.NilError(t, err)
-
-	namespace = corev1.Namespace{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: "",
-			Kind:       "Namespace",
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: "monitoring",
 		},
 	}
 
@@ -1943,4 +1964,108 @@ func TestReconciler_Reconcile_IgnoreConflicts(t *testing.T) {
 		*anotherDeployment.Spec.Template.Spec.SecurityContext.FSGroupChangePolicy,
 		corev1.FSGroupChangeOnRootMismatch,
 	)
+}
+
+func TestReconciler_Reconcile_Stage(t *testing.T) {
+	ctx := context.Background()
+	dnsServer, err := dnstest.NewDNSServer()
+	assert.NilError(t, err)
+	defer dnsServer.Close()
+
+	registryPath := t.TempDir()
+
+	cueModuleRegistry, err := ocitest.StartCUERegistry(registryPath)
+	assert.NilError(t, err)
+	defer cueModuleRegistry.Close()
+
+	env := projecttest.InitTestEnvironment(
+		t,
+		[]byte(useStageTemplate()),
+	)
+
+	kubernetes := kubetest.StartKubetestEnv(t, env.Log, kubetest.WithEnabled(true))
+	defer kubernetes.Stop()
+	projectManager := project.NewManager(component.NewBuilder(), -1)
+
+	scheduler, err := gocron.NewScheduler()
+	assert.NilError(t, err)
+	quitChan := make(chan struct{}, 1)
+	schedulerEg := &errgroup.Group{}
+	schedulerEg.SetLimit(1)
+	defer func() {
+		quitChan <- struct{}{}
+		_ = scheduler.Shutdown()
+	}()
+
+	reconciler := project.Reconciler{
+		KubeConfig:            kubernetes.ControlPlane.Config,
+		ComponentBuilder:      component.NewBuilder(),
+		RepositoryManager:     kubernetes.RepositoryManager,
+		ProjectManager:        projectManager,
+		Log:                   env.Log,
+		FieldManager:          "controller",
+		WorkerPoolSize:        -1,
+		InsecureSkipTLSverify: true,
+		CacheDir:              env.TestRoot,
+		Scheduler:             scheduler,
+		SchedulerQuitChan:     quitChan,
+		SchedulerUpdateChan:   make(chan version.AvailableUpdate, 50),
+		SchedulerErrGroup:     schedulerEg,
+	}
+
+	suspend := false
+	gProject := gitops.GitOpsProject{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: "gitops.navecd.io/v1",
+			Kind:       "GitOpsProject",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test",
+			Namespace: "tenant",
+			UID:       types.UID(env.TestRoot),
+		},
+		Spec: gitops.GitOpsProjectSpec{
+			URL:                 env.TestProject,
+			Dir:                 "int",
+			Branch:              "main",
+			PullIntervalSeconds: 5,
+			Suspend:             &suspend,
+		},
+	}
+
+	result, err := reconciler.Reconcile(ctx, gProject)
+	assert.NilError(t, err)
+	assert.NilError(t, result.PullError)
+	assert.NilError(t, result.ComponentError)
+	assert.Equal(t, result.Suspended, false)
+
+	nsName := "toolb"
+
+	var ns corev1.Namespace
+	err = kubernetes.TestKubeClient.Get(
+		ctx,
+		types.NamespacedName{Name: nsName},
+		&ns,
+	)
+	assert.NilError(t, err)
+	assert.Equal(t, ns.Name, nsName)
+
+	inventoryInstance := &inventory.Instance{
+		// /inventory is mounted as volume.
+		Path: filepath.Join("/inventory", string(gProject.GetUID())),
+	}
+	inventoryStorage, err := inventoryInstance.Load()
+	assert.NilError(t, err)
+
+	invComponents := inventoryStorage.Items()
+	assert.Assert(t, len(invComponents) == 1)
+	nsManifest := &inventory.ManifestItem{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+		},
+		Name: ns.Name,
+		ID:   fmt.Sprintf("%s_%s__Namespace", ns.Name, ns.Namespace),
+	}
+	assert.Assert(t, inventoryStorage.HasItem(nsManifest))
 }

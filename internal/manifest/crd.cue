@@ -4,7 +4,7 @@ _crd: {
 	apiVersion: "apiextensions.k8s.io/v1"
 	kind:       "CustomResourceDefinition"
 	metadata: {
-		annotations: "controller-gen.kubebuilder.io/version": "v0.16.5"
+		annotations: "controller-gen.kubebuilder.io/version": "v0.18.0"
 		name: "gitopsprojects.gitops.navecd.io"
 	}
 	spec: {
@@ -13,6 +13,7 @@ _crd: {
 			kind:     "GitOpsProject"
 			listKind: "GitOpsProjectList"
 			plural:   "gitopsprojects"
+			shortNames: ["gop"]
 			singular: "gitopsproject"
 		}
 		scope: "Namespaced"
@@ -45,9 +46,18 @@ _crd: {
 						description: "GitOpsProjectSpec defines the desired state of GitOpsProject"
 						properties: {
 							branch: {
-								description: "The branch of the gitops repository holding the navecd configuration."
+								description: "The branch of the gitops repository holding navecd configuration."
 								minLength:   1
 								type:        "string"
+							}
+							dir: {
+								default: "."
+								description: """
+	The directory of the gitops repository holding navecd configuration.
+	Can be "." for root.
+	"""
+								minLength: 1
+								type:      "string"
 							}
 							pullIntervalSeconds: {
 								description: "This defines how often navecd will try to fetch changes from the gitops repository."
@@ -70,6 +80,7 @@ _crd: {
 						}
 						required: [
 							"branch",
+							"dir",
 							"pullIntervalSeconds",
 							"url",
 						]

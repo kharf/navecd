@@ -195,7 +195,7 @@ func (reconciler *Reconciler) Reconcile(
 		reconciledCommitHash = gProject.Status.Revision.CommitHash
 	}
 
-	projectInstance, err := reconciler.ProjectManager.Load(repositoryDir)
+	projectInstance, err := reconciler.ProjectManager.Load(repositoryDir, gProject.Spec.Dir)
 	if err != nil {
 		log.Error(
 			err,
@@ -239,7 +239,7 @@ func (reconciler *Reconciler) Reconcile(
 			ErrGroup:   reconciler.SchedulerErrGroup,
 		}
 
-		if _, err := updateScheduler.Schedule(ctx, projectInstance.UpdateInstructions); err != nil {
+		if _, err := updateScheduler.Schedule(ctx, projectUID, projectInstance.UpdateInstructions); err != nil {
 			log.Error(err, "Unable to update update scheduler")
 		}
 	}()

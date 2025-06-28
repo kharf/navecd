@@ -30,8 +30,14 @@ type GitOpsProjectSpec struct {
 	URL string `json:"url"`
 
 	//+kubebuilder:validation:MinLength=1
-	// The branch of the gitops repository holding the navecd configuration.
+	// The branch of the gitops repository holding navecd configuration.
 	Branch string `json:"branch"`
+
+	//+kubebuilder:validation:MinLength=1
+	//+kubebuilder:default="."
+	// The directory of the gitops repository holding navecd configuration.
+	// Can be "." for root.
+	Dir string `json:"dir"`
 
 	//+kubebuilder:validation:Minimum=5
 	// This defines how often navecd will try to fetch changes from the gitops repository.
@@ -58,6 +64,7 @@ type GitOpsProjectStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=gop
 
 // GitOpsProject is the Schema for the gitopsprojects API
 type GitOpsProject struct {
