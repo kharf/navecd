@@ -213,6 +213,10 @@ _{{.Shard}}LeaderRoleName: "{{.Shard}}-leader-election"
 									name: "SSH_KNOWN_HOSTS"
 									value: "/.ssh/known_hosts"
 								},
+								{
+									name: "CUE_REGISTRY"
+									value: "github.com/kharf/navecd/schema=ghcr.io/kharf,registry.cue.works"
+								},
 							]
 							securityContext: {
 								allowPrivilegeEscalation: false

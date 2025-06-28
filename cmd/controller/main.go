@@ -93,11 +93,6 @@ func main() {
 	)
 	flag.Parse()
 
-	if err := os.Setenv("CUE_REGISTRY", "ghcr.io/kharf"); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
 	cfg := ctrl.GetConfigOrDie()
 
 	mgr, scheduler, err := controller.Setup(
