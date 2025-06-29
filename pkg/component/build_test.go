@@ -910,6 +910,42 @@ release: component.#HelmRelease & {
 `, testtemplates.ModuleVersion)
 }
 
+func useForceCRDsUpgradeTemplate() string {
+	return fmt.Sprintf(`
+-- cue.mod/module.cue --
+module: "github.com/kharf/navecd/internal/component/build@v0"
+language: version: "%s"
+deps: {
+	"github.com/kharf/navecd/schema@v0": {
+		v: "v0.0.99"
+	}
+}
+
+-- infra/forcecrdsupgrade/component.cue --
+package forcecrdsupgrade
+
+import (
+	"github.com/kharf/navecd/schema/component"
+)
+
+release: component.#HelmRelease & {
+	name:      "test"
+	namespace: "test"
+	chart: {
+		name:    "test"
+		repoURL: "http://test"
+		version: "test"
+	}
+	values: {
+		autoscaling: enabled: true
+	}
+	crds: {
+		forceUpgrade: true
+	}
+}
+`, testtemplates.ModuleVersion)
+}
+
 func useWrongUpdateBuildAttributeUsageTemplate() string {
 	return fmt.Sprintf(`
 -- cue.mod/module.cue --
@@ -1767,6 +1803,37 @@ This field may not be empty.`,
 							},
 							CRDs: helm.CRDs{
 								AllowUpgrade: true,
+							},
+						},
+						Dependencies: []string{},
+					},
+				},
+			},
+			expectedErr: "",
+		},
+		{
+			name:        "Force-CRDs-Upgrade",
+			packagePath: "./infra/forcecrdsupgrade",
+			template:    useForceCRDsUpgradeTemplate(),
+			expectedBuildResult: &BuildResult{
+				Instances: []Instance{
+					&helm.ReleaseComponent{
+						ID: "test_test_HelmRelease",
+						Content: helm.ReleaseDeclaration{
+							Name:      "test",
+							Namespace: "test",
+							Chart: &helm.Chart{
+								Name:    "test",
+								RepoURL: "http://test",
+								Version: "test",
+							},
+							Values: helm.Values{
+								"autoscaling": map[string]any{
+									"enabled": true,
+								},
+							},
+							CRDs: helm.CRDs{
+								ForceUpgrade: true,
 							},
 						},
 						Dependencies: []string{},

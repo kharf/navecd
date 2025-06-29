@@ -254,6 +254,11 @@ func (b Builder) Build(opts ...buildOption) (*BuildResult, error) {
 				return nil, buildError(err)
 			}
 
+			forceUpgrade, err := getBoolValue(*crdsValue, "forceUpgrade")
+			if err != nil {
+				return nil, buildError(err)
+			}
+
 			hr := &helm.ReleaseComponent{
 				ID:           id,
 				Dependencies: dependencies,
@@ -264,6 +269,7 @@ func (b Builder) Build(opts ...buildOption) (*BuildResult, error) {
 					Values:    values,
 					CRDs: helm.CRDs{
 						AllowUpgrade: allowUpgrade,
+						ForceUpgrade: forceUpgrade,
 					},
 				},
 			}

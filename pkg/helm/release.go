@@ -66,9 +66,12 @@ type ReleaseDeclaration struct {
 // Helm CRD handling configuration.
 type CRDs struct {
 	// Helm only supports installation by default.
-	// This option extends Helm to allow Navecd to upgrade CRDs packaged with a Chart.
+	// This option extends Helm to allow Navecd to upgrade CRDs packaged withing a Chart on drifts.
+	// It does nothing, when ForceUpgrade is true.
 	AllowUpgrade bool `json:"allowUpgrade"`
+	// This option extends Helm to force Navecd to upgrade CRDs packaged within a Chart before drift detection.
+	ForceUpgrade bool `json:"forceUpgrade"`
 }
 
 // Values provide a way to override Helm Chart template defaults with custom information.
-type Values map[string]interface{}
+type Values map[string]any
