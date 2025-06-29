@@ -180,8 +180,6 @@ func (n *Navecd) Release(
 		WithSecretVariable("GITHUB_TOKEN", token).
 		WithEnvVariable("GITHUB_USER", user).
 		WithExec([]string{"sh", "-c", "echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin"}).
-		WithWorkdir("schema").
-		WithExec([]string{"../bin/cue", "mod", "publish", prefixedVersion}).
 		WithWorkdir(workDir).
 		WithExec([]string{"go", "install", goreleaserDep}).
 		WithEnvVariable("PATH", "$PATH:"+bin, dagger.ContainerWithEnvVariableOpts{Expand: true}).
@@ -192,6 +190,7 @@ func (n *Navecd) Release(
 				`git config --global url.https://$GITHUB_USER:$GITHUB_TOKEN@github.com/kharf/navecd.git.insteadOf git@github.com:kharf/navecd.git`,
 			},
 		).
+		WithEnvVariable("CACHEBUSTER", time.Now().String()).
 		WithExec([]string{"git", "tag", prefixedVersion}).
 		WithExec([]string{"git", "push", "origin", prefixedVersion})
 
@@ -200,12 +199,16 @@ func (n *Navecd) Release(
 	}
 
 	publish, err := publish.
-		WithExec([]string{"goreleaser", "release", "--clean", "--skip=validate"}).Sync(ctx)
+		WithExec([]string{"goreleaser", "release", "--clean", "--skip=validate"}).
+		WithWorkdir("schema").
+		WithExec([]string{"../bin/cue", "mod", "publish", prefixedVersion}).
+		Sync(ctx)
 	if err != nil {
 		return "", err
 	}
 
 	ref, err := publish.
+		WithWorkdir(workDir).
 		Directory(".").
 		DockerBuild().
 		WithRegistryAuth("ghcr.io", "kharf", token).

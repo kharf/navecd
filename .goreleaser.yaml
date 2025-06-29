@@ -63,6 +63,9 @@ release:
     - cli
   draft: true
 
+git:
+  tag_sort: -version:creatordate
+
 changelog:
   sort: asc
   filters:
