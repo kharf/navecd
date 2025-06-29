@@ -157,6 +157,7 @@ release: component.#HelmRelease & {
 
 	crds: {
 		allowUpgrade: true
+		forceUpgrade: false
 	}
 
 	values: {
@@ -1248,6 +1249,7 @@ release: component.#HelmRelease & {
 
 	crds: {
 		allowUpgrade: true
+		forceUpgrade: false
 	}
 
 	values: {

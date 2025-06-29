@@ -269,6 +269,12 @@ func (c *ChartReconciler) installOrUpgrade(
 		}
 	}
 
+	if desiredRelease.CRDs.ForceUpgrade {
+		if err = c.upgradeCRDs(ctx, chrt); err != nil {
+			return nil, err
+		}
+	}
+
 	drift, err := c.diff(
 		ctx,
 		component,
@@ -313,17 +319,9 @@ func (c *ChartReconciler) installOrUpgrade(
 	log.Info("Upgrading release")
 
 	// CRDs are always only upgraded, never deleted
-	if desiredRelease.CRDs.AllowUpgrade {
-		for _, crd := range chrt.CRDObjects() {
-			decoder := yaml.NewDecoder(bytes.NewBuffer(crd.File.Data))
-			manifest, err := decodeManifest(decoder)
-			if err != nil {
-				return nil, err
-			}
-
-			if _, err := c.Client.DynamicClient().Apply(ctx, manifest, c.FieldManager, kube.ForceApply(true)); err != nil {
-				return nil, err
-			}
+	if desiredRelease.CRDs.AllowUpgrade && !desiredRelease.CRDs.ForceUpgrade {
+		if err = c.upgradeCRDs(ctx, chrt); err != nil {
+			return nil, err
 		}
 	}
 
@@ -341,6 +339,21 @@ func (c *ChartReconciler) installOrUpgrade(
 		CRDs:      desiredRelease.CRDs,
 		Version:   release.Version,
 	}, nil
+}
+
+func (c *ChartReconciler) upgradeCRDs(ctx context.Context, chrt *chart.Chart) error {
+	for _, crd := range chrt.CRDObjects() {
+		decoder := yaml.NewDecoder(bytes.NewBuffer(crd.File.Data))
+		manifest, err := decodeManifest(decoder)
+		if err != nil {
+			return err
+		}
+
+		if _, err := c.Client.DynamicClient().Apply(ctx, manifest, c.FieldManager, kube.ForceApply(true)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type drift struct {

@@ -547,7 +547,7 @@ func TestChartReconciler_Reconcile_HTTP(t *testing.T) {
 		nil,
 		false,
 		Values{
-			"autoscaling": map[string]interface{}{
+			"autoscaling": map[string]any{
 				"enabled": true,
 			},
 		},
@@ -2205,7 +2205,7 @@ func TestChartReconciler_Reconcile_UpgradeCRDs(t *testing.T) {
 	assert.Equal(t, actualRelease.Version, 2)
 }
 
-func TestChartReconciler_Reconcile_UpgradeCRDsForbidden(t *testing.T) {
+func TestChartReconciler_Reconcile_UpgradeCRDsBreakingChangeWithoutUpgrade(t *testing.T) {
 	dnsServer, err := dnstest.NewDNSServer()
 	assert.NilError(t, err)
 	defer dnsServer.Close()
@@ -2223,7 +2223,11 @@ func TestChartReconciler_Reconcile_UpgradeCRDsForbidden(t *testing.T) {
 		"2.0.0",
 		nil,
 		false,
-		Values{},
+		Values{
+			"crontab": map[string]any{
+				"enabled": true,
+			},
+		},
 		nil,
 	)
 
@@ -2304,6 +2308,46 @@ func TestChartReconciler_Reconcile_UpgradeCRDsForbidden(t *testing.T) {
 	}
 
 	releaseDeclaration.Chart = chart
+	_, err = chartReconciler.Reconcile(
+		ctx,
+		&helm.ReleaseComponent{
+			ID: fmt.Sprintf(
+				"%s_%s_%s",
+				releaseDeclaration.Name,
+				releaseDeclaration.Namespace,
+				"HelmRelease",
+			),
+			Content: releaseDeclaration,
+		},
+	)
+	assert.ErrorContains(
+		t,
+		err,
+		"failed to create typed patch object (default/test; stable.example.com/v1, Kind=CronTab): .spec.ref: field not declared in schema",
+	)
+
+	// specifiying allow crds upgrade after the first upgrade, where it was disallowed, should still fail
+	releaseDeclaration.CRDs.AllowUpgrade = true
+	_, err = chartReconciler.Reconcile(
+		ctx,
+		&helm.ReleaseComponent{
+			ID: fmt.Sprintf(
+				"%s_%s_%s",
+				releaseDeclaration.Name,
+				releaseDeclaration.Namespace,
+				"HelmRelease",
+			),
+			Content: releaseDeclaration,
+		},
+	)
+	assert.ErrorContains(
+		t,
+		err,
+		"failed to create typed patch object (default/test; stable.example.com/v1, Kind=CronTab): .spec.ref: field not declared in schema",
+	)
+
+	// specifiying force after the first upgrade, where it was disallowed, crds should be applied and reconciliation should not fail
+	releaseDeclaration.CRDs.ForceUpgrade = true
 	actualRelease, err := chartReconciler.Reconcile(
 		ctx,
 		&helm.ReleaseComponent{
@@ -2318,7 +2362,7 @@ func TestChartReconciler_Reconcile_UpgradeCRDsForbidden(t *testing.T) {
 	)
 	assert.NilError(t, err)
 
-	assertChartv2(
+	assertChartv3(
 		t,
 		kubernetes,
 		actualRelease.Name,

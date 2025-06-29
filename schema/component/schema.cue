@@ -61,8 +61,11 @@ _manifestMetadata: {
 // Helm CRD handling configuration.
 #CRDs: {
 	// Helm only supports installation by default.
-	// This option extends Helm to allow Navecd to upgrade CRDs packaged with a Chart.
+	// This option extends Helm to allow Navecd to upgrade CRDs packaged within a Chart on drifts.
+	// It does nothing, when ForceUpgrade is true.
 	allowUpgrade: bool | *false
+	// This option extends Helm to force Navecd to upgrade CRDs packaged within a Chart before drift detection.
+	forceUpgrade: bool | *false
 }
 
 // A Helm package that contains information

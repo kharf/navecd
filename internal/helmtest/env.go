@@ -86,6 +86,21 @@ spec:
     shortNames:
     - ct
 
+-- test/templates/crontab.yaml --
+{{- if .Values.crontab.enabled }}
+apiVersion: stable.example.com/v1
+kind: CronTab
+metadata:
+  name: {{ include "test.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "test.labels" . | nindent 4 }}
+spec:
+  cronSpec: "test"
+  image: "test"
+  replicas: 1
+{{- end }}
+
 -- test/templates/hpa.yaml --
 {{- if .Values.autoscaling.enabled }}
 apiVersion: autoscaling/v2
@@ -439,6 +454,9 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
+crontab:
+  enabled: false
+
 nodeSelector: {}
 
 tolerations: []
@@ -487,6 +505,21 @@ spec:
     shortNames:
     - ct
 
+-- test/templates/crontab.yaml --
+{{- if .Values.crontab.enabled }}
+apiVersion: stable.example.com/v1
+kind: CronTab
+metadata:
+  name: {{ include "test.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "test.labels" . | nindent 4 }}
+spec:
+  cronSpec: "test"
+  image: "test"
+  replicas: 1
+{{- end }}
+
 -- test/templates/hpa.yaml --
 {{- if .Values.autoscaling.enabled }}
 apiVersion: autoscaling/v2
@@ -824,6 +857,9 @@ autoscaling:
   maxReplicas: 100
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
+
+crontab:
+  enabled: false
 
 nodeSelector: {}
 
@@ -863,6 +899,8 @@ spec:
                   type: string
                 image:
                   type: string
+                ref:
+                  type: string
   scope: Namespaced
   names:
     plural: crontabs
@@ -870,6 +908,21 @@ spec:
     kind: CronTab
     shortNames:
     - ct
+
+-- test/templates/crontab.yaml --
+{{- if .Values.crontab.enabled }}
+apiVersion: stable.example.com/v1
+kind: CronTab
+metadata:
+  name: {{ include "test.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "test.labels" . | nindent 4 }}
+spec:
+  cronSpec: "test"
+  image: "test"
+  ref: "1"
+{{- end }}
 
 -- test/templates/hpa.yaml --
 {{- if .Values.autoscaling.enabled }}
@@ -1208,6 +1261,9 @@ autoscaling:
   maxReplicas: 100
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
+
+crontab:
+  enabled: false
 
 nodeSelector: {}
 
