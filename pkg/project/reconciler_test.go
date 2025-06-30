@@ -828,7 +828,6 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 			UID:       types.UID(env.TestRoot),
 		},
 		Spec: gitops.GitOpsProjectSpec{
-			ServiceAccountName:  "mysa",
 			URL:                 env.TestProject,
 			Branch:              "main",
 			PullIntervalSeconds: 5,
@@ -836,6 +835,7 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 		},
 	}
 
+	gProject.Spec.ServiceAccountName = "mysa"
 	result, err := reconciler.Reconcile(ctx, gProject)
 	assert.NilError(t, err)
 	assert.NilError(t, result.PullError)
@@ -845,6 +845,11 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 		result.ComponentError,
 		`is forbidden: User "system:serviceaccount:tenant:mysa" cannot get resource`,
 	)
+
+	// test if kubeconfig impersonation config applies correctly
+	gProject.Spec.ServiceAccountName = ""
+	result, err = reconciler.Reconcile(ctx, gProject)
+	assert.NilError(t, err)
 
 	namespace := corev1.Namespace{
 		TypeMeta: v1.TypeMeta{

@@ -100,15 +100,19 @@ func (reconciler *Reconciler) Reconcile(
 	}
 	log := reconciler.Log
 
-	cfg := reconciler.KubeConfig
+	var cfg *rest.Config
 	if gProject.Spec.ServiceAccountName != "" {
-		cfg.Impersonate = rest.ImpersonationConfig{
+		impCfg := *reconciler.KubeConfig
+		impCfg.Impersonate = rest.ImpersonationConfig{
 			UserName: fmt.Sprintf(
 				"system:serviceaccount:%s:%s",
 				gProject.Namespace,
 				gProject.Spec.ServiceAccountName,
 			),
 		}
+		cfg = &impCfg
+	} else {
+		cfg = reconciler.KubeConfig
 	}
 
 	log = log.WithValues(
