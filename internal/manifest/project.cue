@@ -19,6 +19,7 @@ import (
 		}
 		spec: {
 			branch:              "{{.Branch}}"
+			dir:                 "{{.Dir}}"
 			pullIntervalSeconds: {{.PullIntervalSeconds}}
 			suspend:             false
 			url:                 "{{.Url}}"

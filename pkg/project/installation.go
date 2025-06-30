@@ -39,6 +39,7 @@ var (
 
 type InstallOptions struct {
 	Branch       string
+	Dir          string
 	Url          string
 	Name         string
 	Token        string
@@ -82,10 +83,11 @@ func (act InstallAction) Install(ctx context.Context, opts InstallOptions) error
 			return err
 		}
 
-		if err := projectTmpl.Execute(&projectBuf, map[string]interface{}{
+		if err := projectTmpl.Execute(&projectBuf, map[string]any{
 			"Name":                opts.Name,
 			"Namespace":           ControllerNamespace,
 			"Branch":              opts.Branch,
+			"Dir":                 opts.Dir,
 			"PullIntervalSeconds": opts.Interval,
 			"Shard":               opts.Shard,
 			"Url":                 opts.Url,

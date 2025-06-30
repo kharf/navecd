@@ -96,6 +96,7 @@ func defaultAssertion(
 		"Name":                projectName,
 		"Namespace":           project.ControllerNamespace,
 		"Branch":              branch,
+		"Dir":                 dir,
 		"PullIntervalSeconds": intervalInSeconds,
 		"Url":                 url,
 		"Shard":               projectName,
@@ -136,6 +137,7 @@ const (
 	intervalInSeconds = 5
 	url               = "git@github.com:owner/repo.git"
 	branch            = "main"
+	dir               = "dev"
 )
 
 type testContext struct {
@@ -222,6 +224,7 @@ func fresh(t *testing.T, testContext testContext) {
 			Name:     projectName,
 			Shard:    projectName,
 			Branch:   branch,
+			Dir:      dir,
 			Interval: intervalInSeconds,
 			Url:      url,
 			Token:    "aaaa",
@@ -271,6 +274,7 @@ func persistToken(t *testing.T, testContext testContext) {
 			Name:         projectName,
 			Shard:        projectName,
 			Branch:       branch,
+			Dir:          dir,
 			Interval:     intervalInSeconds,
 			Url:          url,
 			Token:        token,
@@ -332,6 +336,7 @@ func multiTenancy(t *testing.T, testContext testContext) {
 			Name:     projectName,
 			Shard:    projectName,
 			Branch:   branch,
+			Dir:      dir,
 			Interval: intervalInSeconds,
 			Url:      url,
 			Token:    "aaaa",
@@ -372,6 +377,7 @@ func multiTenancy(t *testing.T, testContext testContext) {
 			Name:     secondaryProjectName,
 			Shard:    secondaryProjectName,
 			Branch:   branch,
+			Dir:      dir,
 			Interval: intervalInSeconds,
 			Url:      url,
 			Token:    "aaaa",
@@ -419,6 +425,7 @@ func runTwice(t *testing.T, testContext testContext) {
 			Name:     projectName,
 			Shard:    projectName,
 			Branch:   branch,
+			Dir:      dir,
 			Interval: intervalInSeconds,
 			Url:      url,
 			Token:    "aaaa",
@@ -447,6 +454,7 @@ func runTwice(t *testing.T, testContext testContext) {
 		ctx,
 		project.InstallOptions{
 			Branch:   branch,
+			Dir:      dir,
 			Interval: intervalInSeconds,
 			Name:     projectName,
 			Shard:    projectName,

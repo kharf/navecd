@@ -164,6 +164,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 					project.InstallOptions{
 						Url:      env.TestProject,
 						Branch:   "main",
+						Dir:      ".",
 						Name:     gitOpsProjectName,
 						Shard:    "primary",
 						Interval: 0,
@@ -218,6 +219,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 						project.InstallOptions{
 							Url:      env.TestProject,
 							Branch:   "main",
+							Dir:      ".",
 							Name:     gitOpsProjectName,
 							Shard:    "primary",
 							Interval: intervalInSeconds,
@@ -341,6 +343,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 					project.InstallOptions{
 						Url:      env.TestProject,
 						Branch:   "main",
+						Dir:      ".",
 						Name:     projectName,
 						Shard:    "primary",
 						Interval: intervalInSeconds,

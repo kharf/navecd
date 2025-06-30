@@ -95,9 +95,10 @@ func (builder InitCommandBuilder) Build() *cobra.Command {
 type VerifyCommandBuilder struct{}
 
 func (builder VerifyCommandBuilder) Build() *cobra.Command {
+	var dir string
 	cmd := &cobra.Command{
 		Use:   "verify",
-		Short: "Verify a Navecd Repository in the current directory, whether it contains valid code and can be compiled",
+		Short: "Validate Navecd Configuration in specified directory",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			cwd, err := os.Getwd()
@@ -110,7 +111,7 @@ func (builder VerifyCommandBuilder) Build() *cobra.Command {
 				-1,
 			)
 
-			instance, err := projectManager.Load(cwd, ".")
+			instance, err := projectManager.Load(cwd, dir)
 			if err != nil {
 				return err
 			}
@@ -123,6 +124,8 @@ func (builder VerifyCommandBuilder) Build() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().
+		StringVar(&dir, "dir", ".", "Dir of the GitOps Repository containing project configuration")
 	return cmd
 }
 
@@ -147,6 +150,7 @@ func (builder InstallCommandBuilder) Build() *cobra.Command {
 	ctx := context.Background()
 	var branch string
 	var url string
+	var dir string
 	var name string
 	var token string
 	var interval int
@@ -175,6 +179,7 @@ func (builder InstallCommandBuilder) Build() *cobra.Command {
 				project.InstallOptions{
 					Url:          url,
 					Branch:       branch,
+					Dir:          dir,
 					Name:         name,
 					Interval:     interval,
 					Token:        token,
@@ -189,6 +194,8 @@ func (builder InstallCommandBuilder) Build() *cobra.Command {
 	}
 	cmd.Flags().
 		StringVarP(&branch, "branch", "b", "main", "Branch of the GitOps Repository containing project configuration")
+	cmd.Flags().
+		StringVar(&dir, "dir", ".", "Dir of the GitOps Repository containing project configuration")
 	cmd.Flags().StringVarP(&url, "url", "u", "", "Url to the GitOps repository")
 	cmd.Flags().
 		StringVar(&name, "name", "", "Name of the GitOps Project")
