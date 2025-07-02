@@ -4,6 +4,6 @@ language: {
 }
 deps: {
 	"github.com/kharf/navecd/schema@v0": {
-		v: "v0.26.8"
+		v: "v0.26.11"
 	}
 }
