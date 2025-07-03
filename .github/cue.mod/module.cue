@@ -1,6 +1,6 @@
 module: "github.com/kharf/navecd/build@v0"
 language: {
-	version: "v0.13.0"
+	version: "v0.13.2"
 }
 deps: {
 	"cue.dev/x/githubactions@v0": {
