@@ -16,9 +16,18 @@ package version_test
 
 import (
 	"context"
-	"cuelabs.dev/go/oci/ociregistry"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"strings"
+	"testing"
+
+	"cuelabs.dev/go/oci/ociregistry"
+	"github.com/Masterminds/semver/v3"
 	"github.com/go-logr/logr"
 	"github.com/kharf/navecd/internal/cloudtest"
 	"github.com/kharf/navecd/internal/dnstest"
@@ -33,17 +42,10 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/repo"
-	"io"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net"
-	"net/http"
-	"net/http/httptest"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/yaml"
-	"strconv"
-	"strings"
-	"testing"
 )
 
 type scanTestCase struct {
@@ -556,7 +558,7 @@ var (
 		haveRemoteVersions: map[string][]string{
 			"myimage": {"1.14.0", "1.15.1", "1.15.2", "1.16.5", "other", "latest"},
 		},
-		wantErr: "Invalid Semantic Version",
+		wantErr: semver.ErrInvalidSemVer.Error(),
 	}
 
 	noRemoteSemverVersion = scanTestCase{
