@@ -9,10 +9,10 @@ require (
 	cuelang.org/go v0.13.2
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.10.1
-	github.com/aws/aws-sdk-go-v2 v1.36.5
-	github.com/aws/aws-sdk-go-v2/config v1.29.17
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.70
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.45.1
+	github.com/aws/aws-sdk-go-v2 v1.36.6
+	github.com/aws/aws-sdk-go-v2/config v1.29.18
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.71
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.45.2
 	github.com/foxcpp/go-mockdns v1.1.0
 	github.com/go-co-op/gocron/v2 v2.16.2
 	// Pin go-git to fix SSH knownhosts key mismatch regression bug
@@ -40,15 +40,15 @@ require (
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.4.2 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.32 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.36 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.36 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.33 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.37 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.37 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.17 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.25.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.34.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.18 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.25.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.34.1 // indirect
 	github.com/aws/smithy-go v1.22.4 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
