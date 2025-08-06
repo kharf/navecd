@@ -45,7 +45,7 @@ func Init(
 	}
 
 	if os.IsNotExist(err) {
-		moduleFile := modfile.File{
+		moduleFile := &modfile.File{
 			Module: module,
 			Language: &modfile.Language{
 				Version: "v0.13.0",
@@ -57,7 +57,7 @@ func Init(
 			},
 		}
 
-		content, err := moduleFile.Format()
+		content, err := modfile.Format(moduleFile)
 		if err != nil {
 			return err
 		}
