@@ -107,7 +107,7 @@ func TestInit(t *testing.T) {
 			run: func() string {
 				path, err := os.MkdirTemp("", "")
 				assert.NilError(t, err)
-				moduleFile := modfile.File{
+				moduleFile := &modfile.File{
 					Module: "mymodule.com@v0",
 					Language: &modfile.Language{
 						Version: "v0.8.0",
@@ -118,7 +118,7 @@ func TestInit(t *testing.T) {
 						},
 					},
 				}
-				content, err := moduleFile.Format()
+				content, err := modfile.Format(moduleFile)
 				assert.NilError(t, err)
 				moduleDir := filepath.Join(path, "cue.mod")
 				err = os.MkdirAll(moduleDir, 0755)
