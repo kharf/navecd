@@ -19,7 +19,7 @@ import (
 
 #checkoutCode: {
 	name: string | *"Checkout code"
-	uses: "actions/checkout@v4.2.2"
+	uses: "actions/checkout@v4.3.0"
 	with: {
 		[string]: string | number | bool
 		token:    "${{ secrets.PAT }}"
