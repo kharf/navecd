@@ -6,7 +6,7 @@ toolchain go1.24.6
 
 require (
 	cuelabs.dev/go/oci/ociregistry v0.0.0-20250722084951-074d06050084
-	cuelang.org/go v0.14.0
+	cuelang.org/go v0.14.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.2
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.11.0
 	github.com/aws/aws-sdk-go-v2 v1.37.2
