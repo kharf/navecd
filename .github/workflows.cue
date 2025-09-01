@@ -37,7 +37,7 @@ import (
 
 #dagger: {
 	name: string
-	uses: "dagger/dagger-for-github@8.0.0"
+	uses: "dagger/dagger-for-github@v8.1.0"
 	with: {
 		call?: string
 		verb?: string
