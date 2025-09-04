@@ -34,7 +34,7 @@ jobs:
         with:
           token: ${{ secrets.PAT }}
           ref: ${{ github.head_ref || github.ref_name }}
-      - uses: actions/setup-go@v5.5.0
+      - uses: actions/setup-go@v6
       - uses: cue-lang/setup-cue@v1.0.1
       - name: Create Kubernetes Cluster
         uses: helm/kind-action@v1.12.0

@@ -28,7 +28,7 @@ import (
 
 #setupGo: {
 	name: "Setup Go"
-	uses: "actions/setup-go@v5.5.0"
+	uses: "actions/setup-go@v6"
 	with: {
 		"go-version-file":       "go.mod"
 		"cache-dependency-path": "go.sum"
@@ -155,7 +155,7 @@ workflows: [
 					}
 				},
 				{
-					uses: "actions/setup-go@v5.5.0"
+					uses: "actions/setup-go@v6"
 				},
 				{
 					uses: "cue-lang/setup-cue@v1.0.1"
