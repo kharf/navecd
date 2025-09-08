@@ -21,8 +21,8 @@ require (
 	github.com/google/go-github/v74 v74.0.0
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.9
 	github.com/jonboulle/clockwork v0.5.0
-	github.com/onsi/ginkgo/v2 v2.25.1
-	github.com/onsi/gomega v1.38.1
+	github.com/onsi/ginkgo/v2 v2.25.3
+	github.com/onsi/gomega v1.38.2
 	github.com/xanzy/go-gitlab v0.115.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/goleak v1.3.0
