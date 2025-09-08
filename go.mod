@@ -14,7 +14,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.10
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.50.1
 	github.com/foxcpp/go-mockdns v1.1.0
-	github.com/go-co-op/gocron/v2 v2.16.3
+	github.com/go-co-op/gocron/v2 v2.16.5
 	// Pin go-git to fix SSH knownhosts key mismatch regression bug
 	github.com/go-git/go-git/v5 v5.16.3-0.20250610123634-8ac015a75d81
 	github.com/google/go-containerregistry v0.20.6
