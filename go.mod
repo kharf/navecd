@@ -19,7 +19,7 @@ require (
 	github.com/go-git/go-git/v5 v5.16.3-0.20250610123634-8ac015a75d81
 	github.com/google/go-containerregistry v0.20.6
 	github.com/google/go-github/v74 v74.0.0
-	github.com/grafana/pyroscope-go/godeltaprof v0.1.8
+	github.com/grafana/pyroscope-go/godeltaprof v0.1.9
 	github.com/jonboulle/clockwork v0.5.0
 	github.com/onsi/ginkgo/v2 v2.25.1
 	github.com/onsi/gomega v1.38.1
