@@ -46,33 +46,33 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 		{
 			name: "Apply-With-Manual-Change-Overwrite",
 			haveUnstructured: &unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": "apps/v1",
 					"kind":       "Deployment",
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"name":      "test",
 						"namespace": "test",
 					},
-					"spec": map[string]interface{}{
-						"selector": map[string]interface{}{
+					"spec": map[string]any{
+						"selector": map[string]any{
 							"matchLabels": map[string]string{
 								"app": "test",
 							},
 						},
 						"replicas": 2,
-						"template": map[string]interface{}{
-							"metadata": map[string]interface{}{
+						"template": map[string]any{
+							"metadata": map[string]any{
 								"labels": map[string]string{
 									"app": "test",
 								},
 							},
-							"spec": map[string]interface{}{
-								"securityContext": map[string]interface{}{
+							"spec": map[string]any{
+								"securityContext": map[string]any{
 									"runAsNonRoot":        false,
 									"fsGroup":             0,
 									"fsGroupChangePolicy": "Always",
 								},
-								"containers": []map[string]interface{}{
+								"containers": []map[string]any{
 									{
 										"image": "test",
 										"name":  "test",
@@ -87,30 +87,30 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 				{
 					manager: "kubectl",
 					unstr: &unstructured.Unstructured{
-						Object: map[string]interface{}{
+						Object: map[string]any{
 							"apiVersion": "apps/v1",
 							"kind":       "Deployment",
-							"metadata": map[string]interface{}{
+							"metadata": map[string]any{
 								"name":      "test",
 								"namespace": "test",
 							},
-							"spec": map[string]interface{}{
-								"selector": map[string]interface{}{
+							"spec": map[string]any{
+								"selector": map[string]any{
 									"matchLabels": map[string]string{
 										"app": "test",
 									},
 								},
-								"template": map[string]interface{}{
-									"metadata": map[string]interface{}{
+								"template": map[string]any{
+									"metadata": map[string]any{
 										"labels": map[string]string{
 											"app": "test",
 										},
 									},
-									"spec": map[string]interface{}{
-										"containers": []map[string]interface{}{
+									"spec": map[string]any{
+										"containers": []map[string]any{
 											{
 												"name": "test",
-												"env": []map[string]interface{}{
+												"env": []map[string]any{
 													{
 														"name":  "test",
 														"value": "test",
@@ -127,26 +127,26 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 				{
 					manager: "kubectl-edit",
 					unstr: &unstructured.Unstructured{
-						Object: map[string]interface{}{
+						Object: map[string]any{
 							"apiVersion": "apps/v1",
 							"kind":       "Deployment",
-							"metadata": map[string]interface{}{
+							"metadata": map[string]any{
 								"name":      "test",
 								"namespace": "test",
 							},
-							"spec": map[string]interface{}{
-								"selector": map[string]interface{}{
+							"spec": map[string]any{
+								"selector": map[string]any{
 									"matchLabels": map[string]string{
 										"app": "test",
 									},
 								},
-								"template": map[string]interface{}{
-									"metadata": map[string]interface{}{
+								"template": map[string]any{
+									"metadata": map[string]any{
 										"labels": map[string]string{
 											"app": "test",
 										},
 									},
-									"spec": map[string]interface{}{
+									"spec": map[string]any{
 										"dnsPolicy": "Default",
 									},
 								},
@@ -158,33 +158,33 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 			haveUnstructuredUpdate: update{
 				manager: "controller",
 				unstr: &unstructured.Unstructured{
-					Object: map[string]interface{}{
+					Object: map[string]any{
 						"apiVersion": "apps/v1",
 						"kind":       "Deployment",
-						"metadata": map[string]interface{}{
+						"metadata": map[string]any{
 							"name":      "test",
 							"namespace": "test",
 						},
-						"spec": map[string]interface{}{
+						"spec": map[string]any{
 							"replicas": 2,
-							"selector": map[string]interface{}{
+							"selector": map[string]any{
 								"matchLabels": map[string]string{
 									"app": "test",
 								},
 							},
-							"template": map[string]interface{}{
-								"metadata": map[string]interface{}{
+							"template": map[string]any{
+								"metadata": map[string]any{
 									"labels": map[string]string{
 										"app": "test",
 									},
 								},
-								"spec": map[string]interface{}{
-									"securityContext": map[string]interface{}{
+								"spec": map[string]any{
+									"securityContext": map[string]any{
 										"runAsNonRoot":        false,
 										"fsGroup":             0,
 										"fsGroupChangePolicy": "Always",
 									},
-									"containers": []map[string]interface{}{
+									"containers": []map[string]any{
 										{
 											"image": "test",
 											"name":  "test",
@@ -197,10 +197,10 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 				},
 			},
 			wantUnstructured: &unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": "apps/v1",
 					"kind":       "Deployment",
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"name":      "test",
 						"namespace": "test",
 						"managedFields": []v1.ManagedFieldsEntry{
@@ -217,11 +217,11 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 							},
 						},
 					},
-					"spec": map[string]interface{}{
+					"spec": map[string]any{
 						"progressDeadlineSeconds": int64(600),
 						"replicas":                int64(2),
 						"revisionHistoryLimit":    int64(10),
-						"selector": map[string]interface{}{
+						"selector": map[string]any{
 							"matchLabels": map[string]any{
 								"app": "test",
 							},
@@ -233,14 +233,13 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 							},
 							"type": "RollingUpdate",
 						},
-						"template": map[string]interface{}{
-							"metadata": map[string]interface{}{
-								"creationTimestamp": nil,
+						"template": map[string]any{
+							"metadata": map[string]any{
 								"labels": map[string]any{
 									"app": "test",
 								},
 							},
-							"spec": map[string]interface{}{
+							"spec": map[string]any{
 								"dnsPolicy":     "ClusterFirst",
 								"restartPolicy": "Always",
 								"schedulerName": "default-scheduler",
@@ -268,33 +267,33 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 		}, {
 			name: "Apply-With-Other-Field-Managers",
 			haveUnstructured: &unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": "apps/v1",
 					"kind":       "Deployment",
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"name":      "test",
 						"namespace": "test",
 					},
-					"spec": map[string]interface{}{
-						"selector": map[string]interface{}{
+					"spec": map[string]any{
+						"selector": map[string]any{
 							"matchLabels": map[string]string{
 								"app": "test",
 							},
 						},
 						"replicas": 2,
-						"template": map[string]interface{}{
-							"metadata": map[string]interface{}{
+						"template": map[string]any{
+							"metadata": map[string]any{
 								"labels": map[string]string{
 									"app": "test",
 								},
 							},
-							"spec": map[string]interface{}{
-								"securityContext": map[string]interface{}{
+							"spec": map[string]any{
+								"securityContext": map[string]any{
 									"runAsNonRoot":        false,
 									"fsGroup":             0,
 									"fsGroupChangePolicy": "Always",
 								},
-								"containers": []map[string]interface{}{
+								"containers": []map[string]any{
 									{
 										"image": "test",
 										"name":  "test",
@@ -309,30 +308,30 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 				{
 					manager: "kube-controller-manager",
 					unstr: &unstructured.Unstructured{
-						Object: map[string]interface{}{
+						Object: map[string]any{
 							"apiVersion": "apps/v1",
 							"kind":       "Deployment",
-							"metadata": map[string]interface{}{
+							"metadata": map[string]any{
 								"name":      "test",
 								"namespace": "test",
 							},
-							"spec": map[string]interface{}{
-								"selector": map[string]interface{}{
+							"spec": map[string]any{
+								"selector": map[string]any{
 									"matchLabels": map[string]string{
 										"app": "test",
 									},
 								},
-								"template": map[string]interface{}{
-									"metadata": map[string]interface{}{
+								"template": map[string]any{
+									"metadata": map[string]any{
 										"labels": map[string]string{
 											"app": "test",
 										},
 									},
-									"spec": map[string]interface{}{
-										"containers": []map[string]interface{}{
+									"spec": map[string]any{
+										"containers": []map[string]any{
 											{
 												"name": "test",
-												"env": []map[string]interface{}{
+												"env": []map[string]any{
 													{
 														"name":  "test",
 														"value": "test",
@@ -350,33 +349,33 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 			haveUnstructuredUpdate: update{
 				manager: "controller",
 				unstr: &unstructured.Unstructured{
-					Object: map[string]interface{}{
+					Object: map[string]any{
 						"apiVersion": "apps/v1",
 						"kind":       "Deployment",
-						"metadata": map[string]interface{}{
+						"metadata": map[string]any{
 							"name":      "test",
 							"namespace": "test",
 						},
-						"spec": map[string]interface{}{
+						"spec": map[string]any{
 							"replicas": 2,
-							"selector": map[string]interface{}{
+							"selector": map[string]any{
 								"matchLabels": map[string]string{
 									"app": "test",
 								},
 							},
-							"template": map[string]interface{}{
-								"metadata": map[string]interface{}{
+							"template": map[string]any{
+								"metadata": map[string]any{
 									"labels": map[string]string{
 										"app": "test",
 									},
 								},
-								"spec": map[string]interface{}{
-									"securityContext": map[string]interface{}{
+								"spec": map[string]any{
+									"securityContext": map[string]any{
 										"runAsNonRoot":        false,
 										"fsGroup":             0,
 										"fsGroupChangePolicy": "Always",
 									},
-									"containers": []map[string]interface{}{
+									"containers": []map[string]any{
 										{
 											"image": "test",
 											"name":  "test",
@@ -389,10 +388,10 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 				},
 			},
 			wantUnstructured: &unstructured.Unstructured{
-				Object: map[string]interface{}{
+				Object: map[string]any{
 					"apiVersion": "apps/v1",
 					"kind":       "Deployment",
-					"metadata": map[string]interface{}{
+					"metadata": map[string]any{
 						"name":      "test",
 						"namespace": "test",
 						"managedFields": []v1.ManagedFieldsEntry{
@@ -420,11 +419,11 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 							},
 						},
 					},
-					"spec": map[string]interface{}{
+					"spec": map[string]any{
 						"progressDeadlineSeconds": int64(600),
 						"replicas":                int64(2),
 						"revisionHistoryLimit":    int64(10),
-						"selector": map[string]interface{}{
+						"selector": map[string]any{
 							"matchLabels": map[string]any{
 								"app": "test",
 							},
@@ -436,14 +435,13 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 							},
 							"type": "RollingUpdate",
 						},
-						"template": map[string]interface{}{
-							"metadata": map[string]interface{}{
-								"creationTimestamp": nil,
+						"template": map[string]any{
+							"metadata": map[string]any{
 								"labels": map[string]any{
 									"app": "test",
 								},
 							},
-							"spec": map[string]interface{}{
+							"spec": map[string]any{
 								"dnsPolicy":     "ClusterFirst",
 								"restartPolicy": "Always",
 								"schedulerName": "default-scheduler",
@@ -462,7 +460,7 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 										"terminationMessagePath":   "/dev/termination-log",
 										"terminationMessagePolicy": "File",
 										"env": []any{
-											map[string]interface{}{
+											map[string]any{
 												"name":  "test",
 												"value": "test",
 											},
@@ -487,10 +485,10 @@ func TestExtendedDynamicClient_Apply(t *testing.T) {
 
 			if tc.haveUnstructured.GetKind() != "Namespace" {
 				ns := &unstructured.Unstructured{
-					Object: map[string]interface{}{
+					Object: map[string]any{
 						"apiVersion": "v1",
 						"kind":       "Namespace",
-						"metadata": map[string]interface{}{
+						"metadata": map[string]any{
 							"name": tc.haveUnstructured.GetNamespace(),
 						},
 					},
