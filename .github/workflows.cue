@@ -136,7 +136,7 @@ workflows: [
 				matrix: cluster: [
 					{
 						name:  "latest"
-						image: "kindest/node:v1.34.1"
+						image: "kindest/node:v1.34.0"
 					},
 					{
 						name:  "previous"
