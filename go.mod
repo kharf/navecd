@@ -1,6 +1,6 @@
 module github.com/kharf/navecd
 
-go 1.25.0
+go 1.25
 
 toolchain go1.25.1
 

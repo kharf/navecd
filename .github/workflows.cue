@@ -136,15 +136,15 @@ workflows: [
 				matrix: cluster: [
 					{
 						name:  "latest"
-						image: "kindest/node:v1.33.1@sha256:050072256b9a903bd914c0b2866828150cb229cea0efe5892e2b644d5dd3b34f"
+						image: "kindest/node:v1.34.1"
 					},
 					{
 						name:  "previous"
-						image: "kindest/node:v1.32.5@sha256:e3b2327e3a5ab8c76f5ece68936e4cafaa82edf58486b769727ab0b3b97a5b0d"
+						image: "kindest/node:v1.33.4"
 					},
 					{
 						name:  "legacy"
-						image: "kindest/node:v1.31.9@sha256:b94a3a6c06198d17f59cca8c6f486236fa05e2fb359cbd75dabbfc348a10b211"
+						image: "kindest/node:v1.32.8"
 					},
 				]
 			}
@@ -154,9 +154,7 @@ workflows: [
 						ref: "${{ github.head_ref || github.ref_name }}"
 					}
 				},
-				{
-					uses: "actions/setup-go@v6"
-				},
+				#setupGo,
 				{
 					uses: "cue-lang/setup-cue@v1.0.1"
 				},
