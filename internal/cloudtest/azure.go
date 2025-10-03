@@ -93,21 +93,6 @@ func NewAzureEnvironment() (*AzureEnvironment, error) {
 
 	tenantID := "tenant"
 	oidcIssuerMux := http.NewServeMux()
-	oidcIssuerMux.HandleFunc(
-		fmt.Sprintf("GET /%s/v2.0/.well-known/openid-configuration", tenantID),
-		func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(200)
-			err := json.NewEncoder(w).Encode(&azureDiscoveryDocument{
-				AuthorizationEndpoint: "auth",
-				TokenEndpoint:         fmt.Sprintf("%s/token", tokenServer.URL),
-				Issuer:                "issuer",
-			})
-			if err != nil {
-				w.WriteHeader(500)
-				return
-			}
-		},
-	)
 	oidcIssuerServer, err := newUnstartedServerFromEndpoint(
 		"0",
 		oidcIssuerMux,
@@ -115,6 +100,21 @@ func NewAzureEnvironment() (*AzureEnvironment, error) {
 	if err != nil {
 		return nil, err
 	}
+	oidcIssuerMux.HandleFunc(
+		fmt.Sprintf("GET /%s/v2.0/.well-known/openid-configuration", tenantID),
+		func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(200)
+			err := json.NewEncoder(w).Encode(&azureDiscoveryDocument{
+				AuthorizationEndpoint: "auth",
+				TokenEndpoint:         fmt.Sprintf("%s/token", tokenServer.URL),
+				Issuer:                oidcIssuerServer.URL,
+			})
+			if err != nil {
+				w.WriteHeader(500)
+				return
+			}
+		},
+	)
 	oidcIssuerServer.StartTLS()
 	fmt.Println("Azure OIDC Issuer Server listening on", oidcIssuerServer.URL)
 
