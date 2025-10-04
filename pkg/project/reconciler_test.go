@@ -432,7 +432,7 @@ func TestReconciler_Reconcile(t *testing.T) {
 		},
 		Spec: gitops.GitOpsProjectSpec{
 			URL:                 env.TestProject,
-			Branch:              "main",
+			Ref:                 "main",
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -829,7 +829,7 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 		},
 		Spec: gitops.GitOpsProjectSpec{
 			URL:                 env.TestProject,
-			Branch:              "main",
+			Ref:                 "main",
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -1013,7 +1013,7 @@ func TestReconciler_Reconcile_GitPullError(t *testing.T) {
 		},
 		Spec: gitops.GitOpsProjectSpec{
 			URL:                 env.TestProject,
-			Branch:              "main",
+			Ref:                 "main",
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -1146,7 +1146,7 @@ func TestReconciler_Reconcile_ComponentError(t *testing.T) {
 		Spec: gitops.GitOpsProjectSpec{
 			ServiceAccountName:  "unprivileged",
 			URL:                 env.TestProject,
-			Branch:              "main",
+			Ref:                 "main",
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -1380,7 +1380,7 @@ func TestReconciler_Reconcile_WorkloadIdentity(t *testing.T) {
 		},
 		Spec: gitops.GitOpsProjectSpec{
 			URL:                 env.TestProject,
-			Branch:              "main",
+			Ref:                 "main",
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -1538,7 +1538,7 @@ func TestReconciler_Reconcile_Suspend(t *testing.T) {
 		},
 		Spec: gitops.GitOpsProjectSpec{
 			URL:                 env.TestProject,
-			Branch:              "main",
+			Ref:                 "main",
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -1659,7 +1659,7 @@ func TestReconciler_Reconcile_Conflict(t *testing.T) {
 		},
 		Spec: gitops.GitOpsProjectSpec{
 			URL:                 env.TestProject,
-			Branch:              "main",
+			Ref:                 "main",
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -1848,7 +1848,7 @@ func TestReconciler_Reconcile_IgnoreConflicts(t *testing.T) {
 		},
 		Spec: gitops.GitOpsProjectSpec{
 			URL:                 env.TestProject,
-			Branch:              "main",
+			Ref:                 "main",
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -1990,7 +1990,7 @@ func TestReconciler_Reconcile_Stage(t *testing.T) {
 		Spec: gitops.GitOpsProjectSpec{
 			URL:                 env.TestProject,
 			Dir:                 "int",
-			Branch:              "main",
+			Ref:                 "main",
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},

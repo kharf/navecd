@@ -71,6 +71,13 @@ func (r *Registry) Close() {
 	os.Setenv("CUE_REGISTRY", "")
 }
 
+func (r *Registry) PushModule(
+	version module.Version,
+	module io.Reader,
+) error {
+	return nil
+}
+
 // Creates an OCI registry to test tls/https.
 //
 // Note: Container libs use Docker under the hood to handle OCI
@@ -109,15 +116,10 @@ func NewTLSRegistry(private bool, cloudProviderID cloud.ProviderID) (*Registry, 
 				body,
 			) != expectedBody {
 				w.WriteHeader(500)
-				_, _ = w.Write(
-					[]byte(
-						fmt.Sprintf(
-							"got wrong request: %s, expected: %s",
-							string(body),
-							expectedBody,
-						),
-					),
-				)
+				_, _ = fmt.Fprintf(w,
+					"got wrong request: %s, expected: %s",
+					string(body),
+					expectedBody)
 				return
 			}
 
@@ -170,9 +172,8 @@ func NewTLSRegistry(private bool, cloudProviderID cloud.ProviderID) (*Registry, 
 
 				if creds != expectedCreds {
 					w.WriteHeader(401)
-					_, _ = w.Write(
-						[]byte(fmt.Sprintf("wrong credentials, expected %s", expectedCreds)),
-					)
+					_, _ = fmt.Fprintf(w,
+						"wrong credentials, expected %s", expectedCreds)
 					return
 				}
 
