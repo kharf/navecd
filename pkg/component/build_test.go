@@ -26,7 +26,6 @@ import (
 	"github.com/kharf/navecd/pkg/cloud"
 	"github.com/kharf/navecd/pkg/helm"
 	"github.com/kharf/navecd/pkg/kube"
-	"github.com/kharf/navecd/pkg/version"
 	"go.uber.org/goleak"
 	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -108,7 +107,7 @@ _deployment: {
 				containers: [
 					{
 						name:  "prometheus"
-						image: "prometheus:1.14.2" @update(strategy=semver, constraint="<= 1.15.3, >= 1.4", secret=promreg, integration=direct, schedule="5 * * * * *")
+						image: "prometheus:1.14.2"
 						ports: [{
 							containerPort: 80
 						}]
@@ -122,7 +121,7 @@ _deployment: {
 					},
 					{
 						name:  "sidecar2"
-						image: "sidecar2:1.14.2" @ignore(conflict) @update(constraint="*", wi=aws, integration=pr)
+						image: "sidecar2:1.14.2" @ignore(conflict)
 						ports: [{
 							containerPort: 80
 						}]
@@ -190,7 +189,7 @@ release: component.#HelmRelease & {
 	name:      "test"
 	namespace: #namespace.metadata.name
 
-	chart: _chart @update(strategy=semver, constraint="<5.0.0")
+	chart: _chart
 
 	patches: [
 		#deployment & {
@@ -221,7 +220,7 @@ release: component.#HelmRelease & {
 							},
 							{
 								name:  "sidecar"
-								image: "sidecar:1.14.2" @update(strategy=semver, secret=sidecarreg, integration=direct) @ignore(conflict) // attributes in lists are not supported
+								image: "sidecar:1.14.2" @ignore(conflict) // attributes in lists are not supported
 								ports: [{
 									containerPort: 80
 								}]
@@ -266,7 +265,7 @@ releaseWorkloadIdentity: component.#HelmRelease & {
 		repoURL: "oci://test"
 		version: "test"
 		auth:    workloadidentity.#GCP
-	} @update(constraint="*", integration=direct)
+	}
 	values: {
 		autoscaling: enabled: true
 	}
@@ -946,39 +945,6 @@ release: component.#HelmRelease & {
 `, testtemplates.ModuleVersion)
 }
 
-func useWrongUpdateBuildAttributeUsageTemplate() string {
-	return fmt.Sprintf(`
--- cue.mod/module.cue --
-module: "github.com/kharf/navecd/internal/component/build@v0"
-language: version: "%s"
-deps: {
-	"github.com/kharf/navecd/schema@v0": {
-		v: "v0.0.99"
-	}
-}
-
--- infra/wrongupdatebuildattributeusage/component.cue --
-package wrongupdatebuildattributeusage
-
-import (
-	"github.com/kharf/navecd/schema/component"
-)
-
-deployment: component.#Manifest & {
-	content: {
-		apiVersion: "apps/v1"
-		kind: "Deployment"
-		metadata: {
-			name: "test"
-		}
-		spec: {
-			replicas: 1 @update()
-		} @update()
-	}
-}
-`, testtemplates.ModuleVersion)
-}
-
 func TestBuilder_Build(t *testing.T) {
 	defer goleak.VerifyNone(
 		t,
@@ -990,10 +956,9 @@ func TestBuilder_Build(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	registryPath := t.TempDir()
-	cueRegistry, err := ocitest.StartCUERegistry(registryPath)
+	registry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
-	defer cueRegistry.Close()
+	defer registry.Close()
 
 	builder := NewBuilder()
 	assert.NilError(t, err)
@@ -1591,114 +1556,6 @@ This field may not be empty.`,
 						Dependencies: []string{},
 					},
 				},
-				UpdateInstructions: []version.UpdateInstruction{
-					{
-						Strategy:   version.SemVer,
-						Constraint: "<= 1.15.3, >= 1.4",
-						Schedule:   "5 * * * * *",
-						Auth: &cloud.Auth{
-							SecretRef: &cloud.SecretRef{
-								Name: "promreg",
-							},
-						},
-						Integration: version.Direct,
-						File:        "infra/success/component.cue",
-						Line:        65,
-						Target: &version.ContainerUpdateTarget{
-							Image: "prometheus:1.14.2",
-							UnstructuredNode: map[string]any{
-								"image": "prometheus:1.14.2",
-								"name":  "prometheus",
-								"ports": []any{
-									map[string]any{
-										"containerPort": int64(80),
-									},
-								},
-							},
-							UnstructuredKey: "image",
-						},
-					},
-					{
-						Strategy:   version.SemVer,
-						Constraint: "*",
-						Auth: &cloud.Auth{
-							WorkloadIdentity: &cloud.WorkloadIdentity{
-								Provider: cloud.AWS,
-							},
-						},
-						Integration: version.PR,
-						File:        "infra/success/component.cue",
-						Line:        79,
-						Target: &version.ContainerUpdateTarget{
-							Image: "sidecar2:1.14.2",
-							UnstructuredNode: map[string]any{
-								"image": "sidecar2:1.14.2",
-								"name":  "sidecar2",
-								"ports": []any{
-									map[string]any{
-										"containerPort": int64(80),
-									},
-								},
-							},
-							UnstructuredKey: "image",
-						},
-					},
-					{
-						Strategy:    version.SemVer,
-						Constraint:  "<5.0.0",
-						Integration: version.PR,
-						File:        "infra/success/component.cue",
-						Line:        137,
-						Target: &version.ChartUpdateTarget{
-							Chart: &helm.Chart{
-								Name:    "test",
-								RepoURL: "oci://test",
-								Version: "4.9.9",
-							},
-						},
-					},
-					{
-						Strategy: version.SemVer,
-						Auth: &cloud.Auth{
-							SecretRef: &cloud.SecretRef{
-								Name: "sidecarreg",
-							},
-						},
-						Integration: version.Direct,
-						File:        "infra/success/component.cue",
-						Line:        178,
-						Target: &version.ContainerUpdateTarget{
-							Image: "sidecar:1.14.2",
-							UnstructuredNode: map[string]any{
-								"image": "sidecar:1.14.2",
-								"name":  "sidecar",
-								"ports": []any{
-									map[string]any{
-										"containerPort": int64(80),
-									},
-								},
-							},
-							UnstructuredKey: "image",
-						},
-					},
-					{
-						Strategy:    version.SemVer,
-						Constraint:  "*",
-						Integration: version.Direct,
-						File:        "infra/success/component.cue",
-						Line:        221,
-						Target: &version.ChartUpdateTarget{
-							Chart: &helm.Chart{
-								Name:    "test",
-								RepoURL: "oci://test",
-								Version: "test",
-								Auth: &cloud.Auth{
-									WorkloadIdentity: &cloud.WorkloadIdentity{Provider: cloud.GCP},
-								},
-							},
-						},
-					},
-				},
 			},
 			expectedErr: "",
 		},
@@ -1842,34 +1699,6 @@ This field may not be empty.`,
 			},
 			expectedErr: "",
 		},
-		{
-			name:        "Wrong-Update-Build-Attribute-Usage",
-			packagePath: "./infra/wrongupdatebuildattributeusage",
-			template:    useWrongUpdateBuildAttributeUsageTemplate(),
-			expectedBuildResult: &BuildResult{
-				Instances: []Instance{
-					&Manifest{
-						ID: "test__apps_Deployment",
-						Content: ExtendedUnstructured{
-							Unstructured: &unstructured.Unstructured{
-								Object: map[string]any{
-									"apiVersion": "apps/v1",
-									"kind":       "Deployment",
-									"metadata": map[string]any{
-										"name": "test",
-									},
-									"spec": map[string]any{
-										"replicas": int64(1),
-									},
-								},
-							},
-						},
-						Dependencies: []string{},
-					},
-				},
-			},
-			expectedErr: "",
-		},
 	}
 
 	for _, tc := range testCases {
@@ -1889,7 +1718,6 @@ This field may not be empty.`,
 				assert.Assert(t, buildResult != nil)
 
 				assert.DeepEqual(t, buildResult.Instances, tc.expectedBuildResult.Instances)
-				assert.DeepEqual(t, buildResult.UpdateInstructions, tc.expectedBuildResult.UpdateInstructions)
 			}
 		})
 	}

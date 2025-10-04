@@ -26,9 +26,10 @@ import (
 	"time"
 
 	"github.com/kharf/navecd/internal/manifest"
+	"github.com/kharf/navecd/pkg/cloud"
 	"github.com/kharf/navecd/pkg/component"
 	"github.com/kharf/navecd/pkg/kube"
-	"github.com/kharf/navecd/pkg/vcs"
+	"github.com/kharf/navecd/pkg/oci"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -38,14 +39,14 @@ var (
 )
 
 type InstallOptions struct {
-	Branch       string
-	Dir          string
-	Url          string
-	Name         string
-	Token        string
-	Interval     int
-	Shard        string
-	PersistToken bool
+	Url       string
+	Ref       string
+	Dir       string
+	Name      string
+	WIP       string
+	SecretRef string
+	Interval  int
+	Shard     string
 }
 
 type InstallAction struct {
@@ -67,36 +68,55 @@ func NewInstallAction(
 	}
 }
 
-func (act InstallAction) Install(ctx context.Context, opts InstallOptions) error {
+func (act InstallAction) Install(ctx context.Context, opts InstallOptions) (string, error) {
 	navecdDir := filepath.Join(act.projectRoot, "navecd")
 	projectFileName := filepath.Join(navecdDir, fmt.Sprintf("%s_project.cue", opts.Name))
 
 	_, err := os.Stat(projectFileName)
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return "", err
 	}
 
 	if os.IsNotExist(err) {
 		var projectBuf bytes.Buffer
 		projectTmpl, err := template.New("").Parse(manifest.Project)
 		if err != nil {
-			return err
+			return "", err
+		}
+
+		provider := ""
+		secretRef := ""
+		if opts.WIP != "" {
+			switch opts.WIP {
+			case string(cloud.AWS):
+				provider = "AWS"
+
+			case string(cloud.Azure):
+				provider = "Azure"
+
+			case string(cloud.GCP):
+				provider = "GCP"
+			}
+		} else if opts.SecretRef != "" {
+			secretRef = opts.SecretRef
 		}
 
 		if err := projectTmpl.Execute(&projectBuf, map[string]any{
 			"Name":                opts.Name,
 			"Namespace":           ControllerNamespace,
-			"Branch":              opts.Branch,
+			"Url":                 opts.Url,
+			"Ref":                 opts.Ref,
 			"Dir":                 opts.Dir,
 			"PullIntervalSeconds": opts.Interval,
 			"Shard":               opts.Shard,
-			"Url":                 opts.Url,
+			"Provider":            provider,
+			"SecretRef":           secretRef,
 		}); err != nil {
-			return err
+			return "", err
 		}
 
 		if err := os.WriteFile(projectFileName, projectBuf.Bytes(), 0666); err != nil {
-			return err
+			return "", err
 		}
 	}
 
@@ -105,24 +125,24 @@ func (act InstallAction) Install(ctx context.Context, opts InstallOptions) error
 		component.WithProjectRoot(act.projectRoot),
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	dag := component.NewDependencyGraph()
 	if err := dag.Insert(buildResult.Instances...); err != nil {
-		return err
+		return "", err
 	}
 
 	instances, err := dag.TopologicalSort()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	controllerName := getControllerName(opts.Shard)
 	for _, instance := range instances {
 		manifest, ok := instance.(*component.Manifest)
 		if !ok {
-			return ErrHelmInstallationUnsupported
+			return "", ErrHelmInstallationUnsupported
 		}
 
 		if opts.Shard == manifest.GetLabels()["navecd/shard"] {
@@ -134,27 +154,26 @@ func (act InstallAction) Install(ctx context.Context, opts InstallOptions) error
 				manifest.Content.Unstructured,
 				controllerName,
 			); err != nil {
-				return err
+				return "", err
 			}
 		}
 	}
 
-	repoConfigurator, err := vcs.NewRepositoryConfigurator(
-		ControllerNamespace,
-		act.kubeClient,
-		act.httpClient,
-		opts.Url,
-		opts.Token,
+	ociClient, err := oci.NewRepositoryClient(opts.Url)
+	if err != nil {
+		return "", err
+	}
+	projectClient := oci.NewProjectClient(ociClient)
+
+	digest, err := projectClient.PushImageFromPath(
+		opts.Ref,
+		act.projectRoot,
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	if err := repoConfigurator.CreateDeployKeyIfNotExists(ctx, controllerName, opts.Name, opts.PersistToken); err != nil {
-		return err
-	}
-
-	return nil
+	return digest, nil
 }
 
 func (act InstallAction) installObject(

@@ -114,7 +114,6 @@ _{{.Shard}}LeaderRoleName: "{{.Shard}}-leader-election"
 {{.Shard}}PVC: component.#Manifest & {
 	dependencies: [
 		ns.id,
-		knownHostsCm.id,
 	]
 	content: {
 		apiVersion: "v1"
@@ -141,7 +140,6 @@ _{{.Shard}}LeaderRoleName: "{{.Shard}}-leader-election"
 	dependencies: [
 		ns.id,
 		{{.Shard}}PVC.id,
-		knownHostsCm.id,
 	]
 	content: {
 		apiVersion: "apps/v1"
@@ -190,10 +188,6 @@ _{{.Shard}}LeaderRoleName: "{{.Shard}}-leader-election"
 							}
 						},
 						{
-							name: "ssh"
-							configMap: name: knownHostsCm.content.metadata.name
-						},
-						{
 							name: "cache"
 							emptyDir: {}
 						},
@@ -209,10 +203,6 @@ _{{.Shard}}LeaderRoleName: "{{.Shard}}-leader-election"
 								"--log-level=0",
 							]
 							env: [
-								{
-									name: "SSH_KNOWN_HOSTS"
-									value: "/.ssh/known_hosts"
-								},
 								{
 									name: "CUE_REGISTRY"
 									value: "github.com/kharf/navecd/schema=ghcr.io/kharf,registry.cue.works"
@@ -250,11 +240,6 @@ _{{.Shard}}LeaderRoleName: "{{.Shard}}-leader-election"
 								{
 									name:      "podinfo"
 									mountPath: "/podinfo"
-									readOnly:  true
-								},
-								{
-									name:      "ssh"
-									mountPath: "/.ssh"
 									readOnly:  true
 								},
 								{

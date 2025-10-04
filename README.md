@@ -13,7 +13,7 @@
 <br>
 
 ## What is GitOps?
-GitOps is a way of implementing Continuous Deployment for cloud native applications by having a Git repository that contains declarative descriptions of the desired infrastructure and applications and an automated process to reconcile the production environment with the desired state in the repository.
+GitOps is a way of implementing Continuous Deployment for cloud native applications by having a repository that contains declarative descriptions of the desired infrastructure and applications and an automated process to reconcile the production environment with the desired state in the repository.
 
 ## Why Navecd?
 Traditional GitOps tools often rely on YAML for configuration, which can lead to verbosity and complexity.

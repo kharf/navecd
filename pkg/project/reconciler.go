@@ -26,8 +26,6 @@ import (
 	"github.com/kharf/navecd/pkg/helm"
 	"github.com/kharf/navecd/pkg/inventory"
 	"github.com/kharf/navecd/pkg/kube"
-	"github.com/kharf/navecd/pkg/vcs"
-	"github.com/kharf/navecd/pkg/version"
 	"k8s.io/client-go/rest"
 )
 
@@ -41,9 +39,6 @@ type Reconciler struct {
 
 	// Manager loads a navecd project and resolves the component dependency graph.
 	ProjectManager Manager
-
-	// RepositoryManager clones a remote vcs repository to a local path.
-	RepositoryManager vcs.RepositoryManager
 
 	// ComponentBuilder compiles and decodes CUE kubernetes manifest definitions of a component to the corresponding Go struct.
 	ComponentBuilder component.Builder
@@ -61,14 +56,22 @@ type Reconciler struct {
 	// Force http for Helm registries.
 	PlainHTTP bool
 
-	// Directory used to cache vcs repositories or helm charts.
+	// Directory used to cache repositories or helm charts.
 	CacheDir string
+
+	// Directory used to save the inventory of component references for all managed navecd projects.
+	InventoryRootDir string
 
 	// Namespace the controller runs in.
 	Namespace string
 
-	// UpdateScheduler runs background tasks periodically to update Container or Helm Charts.
-	UpdateScheduler *version.UpdateScheduler
+	// Endpoint to the microsoft azure login server.
+	// Default is usually: https://login.microsoftonline.com/.
+	AzureLoginURL string
+
+	// Endpoint to the google metadata server, which provides access tokens.
+	// Default is: http://metadata.google.internal.
+	GCPMetadataServerURL string
 }
 
 // ReconcileResult reports the outcome and metadata of a reconciliation.
@@ -76,12 +79,12 @@ type ReconcileResult struct {
 	// Reports whether the GitOpsProject was flagged as suspended.
 	Suspended bool
 
-	// The hash of the reconciled Git Commit.
-	CommitHash string
+	// The digest of the reconciled navecd project artifact.
+	Digest string
 
-	// PullError reports any error occured while trying to pull from vcs.
+	// DownloadError reports any error occured while trying to load the navecd project artifact.
 	// It is a soft error, which does not halt the reconciliation process, but has to be reported.
-	PullError error
+	DownloadError error
 
 	// ComponentError reports the first occured component reconciliation error.
 	// It is a soft error, which does not halt the reconciliation process, but has to be reported.
@@ -137,8 +140,7 @@ func (reconciler *Reconciler) Reconcile(
 	repositoryDir := filepath.Join(reconciler.CacheDir, "navecd", projectUID)
 
 	inventoryInstance := &inventory.Instance{
-		// /inventory is mounted as volume.
-		Path: filepath.Join("/inventory", projectUID),
+		Path: filepath.Join(reconciler.InventoryRootDir, projectUID),
 	}
 
 	chartReconciler := helm.ChartReconciler{
@@ -169,32 +171,23 @@ func (reconciler *Reconciler) Reconcile(
 		WorkerPoolSize:    reconciler.WorkerPoolSize,
 	}
 
-	repository, err := reconciler.RepositoryManager.Load(
+	projectInstance, err := reconciler.ProjectManager.Load(
 		ctx,
-		gProject.Spec.URL,
-		gProject.Spec.Branch,
 		repositoryDir,
-		gProject.Name,
+		gProject.Spec.Dir,
+		WithRemoteLoader(&OCIRemoteLoader{
+			Repository: OCIRepositoryRef{
+				Name: gProject.Spec.URL,
+				Ref:  gProject.Spec.Ref,
+			},
+			KubeClient:           kubeDynamicClient.DynamicClient(),
+			CacheDir:             reconciler.CacheDir,
+			Namespace:            reconciler.Namespace,
+			AzureLoginURL:        reconciler.AzureLoginURL,
+			GCPMetadataServerURL: reconciler.GCPMetadataServerURL,
+		}),
+		WithAuth(gProject.Spec.Auth),
 	)
-	if err != nil {
-		log.Error(
-			err,
-			"Unable to load gitops project repository",
-		)
-		return nil, err
-	}
-
-	reconciledCommitHash, pullErr := repository.Pull()
-	if pullErr != nil {
-		log.Error(
-			err,
-			"Unable to pull gitops project repository",
-		)
-
-		reconciledCommitHash = gProject.Status.Revision.CommitHash
-	}
-
-	projectInstance, err := reconciler.ProjectManager.Load(repositoryDir, gProject.Spec.Dir)
 	if err != nil {
 		log.Error(
 			err,
@@ -202,38 +195,6 @@ func (reconciler *Reconciler) Reconcile(
 		)
 		return nil, err
 	}
-
-	go func() {
-		updateRepositoryPath := fmt.Sprintf("%s-updates", repository.Path())
-
-		updateRepository, err := reconciler.RepositoryManager.LoadLocally(
-			ctx,
-			repositoryDir,
-			updateRepositoryPath,
-			gProject.Name,
-		)
-		if err != nil {
-			log.Error(
-				err,
-				"Unable to load gitops project repository for updates",
-			)
-			return
-		}
-
-		if _, err := reconciler.UpdateScheduler.Schedule(ctx, version.ScheduleRequest{
-			ProjectUID: projectUID,
-			Scanner: version.Scanner{
-				Log:        log,
-				KubeClient: kubeDynamicClient.DynamicClient(),
-				Namespace:  reconciler.Namespace,
-			},
-			Repository:   updateRepository,
-			Branch:       gProject.Spec.Branch,
-			Instructions: projectInstance.UpdateInstructions,
-		}); err != nil {
-			log.Error(err, "Unable to update update scheduler")
-		}
-	}()
 
 	componentInstances, err := projectInstance.Dag.TopologicalSort()
 	if err != nil {
@@ -248,10 +209,17 @@ func (reconciler *Reconciler) Reconcile(
 		return nil, err
 	}
 
+	var digest string
+	if projectInstance.Digest == "" {
+		digest = gProject.Status.Revision.Digest
+	} else {
+		digest = string(projectInstance.Digest)
+	}
+
 	return &ReconcileResult{
 		Suspended:      false,
-		CommitHash:     reconciledCommitHash,
-		PullError:      pullErr,
+		Digest:         digest,
+		DownloadError:  projectInstance.LoadError,
 		ComponentError: componentReconciler.Reconcile(ctx, componentInstances),
 	}, nil
 }

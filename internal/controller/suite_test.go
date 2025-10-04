@@ -17,20 +17,17 @@ limitations under the License.
 package controller
 
 import (
-	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/kharf/navecd/internal/dnstest"
-	"github.com/kharf/navecd/internal/ocitest"
 )
 
 var (
-	dnsServer         *dnstest.DNSServer
-	cueModuleRegistry *ocitest.Registry
-	test              *testing.T
+	dnsServer *dnstest.DNSServer
+	test      *testing.T
 )
 
 func TestAPIs(t *testing.T) {
@@ -45,15 +42,8 @@ var _ = BeforeSuite(func() {
 
 	dnsServer, err = dnstest.NewDNSServer()
 	Expect(err).NotTo(HaveOccurred())
-
-	registryPath, err := os.MkdirTemp("", "navecd-cue-registry*")
-	Expect(err).NotTo(HaveOccurred())
-
-	cueModuleRegistry, err = ocitest.StartCUERegistry(registryPath)
-	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
 	dnsServer.Close()
-	cueModuleRegistry.Close()
 })

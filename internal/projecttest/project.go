@@ -16,26 +16,27 @@ package projecttest
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"text/template"
 
 	"github.com/go-logr/logr"
-	"github.com/kharf/navecd/internal/gittest"
 	"github.com/kharf/navecd/internal/kubetest"
+	"github.com/kharf/navecd/internal/ocitest"
 	"github.com/kharf/navecd/internal/txtar"
+	"github.com/kharf/navecd/pkg/oci"
+	"github.com/kharf/navecd/pkg/project"
 	"go.uber.org/zap/zapcore"
 	"gotest.tools/v3/assert"
 	ctrlZap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 type Environment struct {
-	Log              logr.Logger
-	TestRoot         string
-	TestProject      string
-	LocalTestProject string
-	GitRepository    *gittest.LocalGitRepository
+	Log         logr.Logger
+	TestRoot    string
+	OCIRegistry *ocitest.Registry
 }
 
 type Option interface {
@@ -67,33 +68,65 @@ func (opt withKubernetes) Apply(opts *options) {
 	opts.kubeOpts = opt
 }
 
-func InitTestEnvironment(t testing.TB, txtarData []byte) Environment {
+func InitTestEnvironment(t testing.TB, opts ...ocitest.Option) Environment {
 	testRoot := t.TempDir()
-
-	localProject, err := os.MkdirTemp(testRoot, "")
-	assert.NilError(t, err)
-
-	_, err = txtar.Create(localProject, bytes.NewReader(txtarData))
-	assert.NilError(t, err)
-
-	remoteProject, err := os.MkdirTemp(testRoot, "")
-	assert.NilError(t, err)
-
-	gitRepository, err := gittest.InitGitRepository(t, remoteProject, localProject, "main")
-	assert.NilError(t, err)
-
 	logOpts := ctrlZap.Options{
 		Development: false,
 		Level:       zapcore.Level(-1),
 	}
 	log := ctrlZap.New(ctrlZap.UseFlagOptions(&logOpts))
-	return Environment{
-		TestRoot:         testRoot,
-		TestProject:      remoteProject,
-		LocalTestProject: localProject,
-		GitRepository:    gitRepository,
-		Log:              log,
+
+	registry, err := ocitest.NewTLSRegistryWithSchema(opts...)
+	assert.NilError(t, err)
+
+	env := Environment{}
+	env.TestRoot = testRoot
+	env.OCIRegistry = registry
+	env.Log = log
+	return env
+}
+
+func (env *Environment) PushProject(t testing.TB, projectName string, tag string, txtarData []byte) project.OCIRepositoryRef {
+	tmpDir, err := os.MkdirTemp(t.TempDir(), "*")
+	assert.NilError(t, err)
+	_, err = txtar.Create(tmpDir, bytes.NewReader(txtarData))
+	assert.NilError(t, err)
+
+	repoName := fmt.Sprintf("%s/%s", env.OCIRegistry.Addr(), projectName)
+	ociClient, err := oci.NewRepositoryClient(repoName)
+	assert.NilError(t, err)
+	projectClient := oci.NewProjectClient(ociClient)
+
+	var user string
+	var pw string
+	switch {
+	case env.OCIRegistry.GCP() != nil:
+		user = "oauth2accesstoken"
+		pw = "aaaa"
+	case env.OCIRegistry.Azure() != nil:
+		user = "00000000-0000-0000-0000-000000000000"
+		pw = "aaaa"
+	default:
+		user = "navecd"
+		pw = "abcd"
 	}
+
+	_, err = projectClient.PushImageFromPath(
+		tag,
+		tmpDir,
+		oci.WithRepositoryOption(
+			oci.WithBasicAuth(user, pw),
+		),
+	)
+	assert.NilError(t, err)
+	return project.OCIRepositoryRef{
+		Name: repoName,
+		Ref:  tag,
+	}
+}
+
+func (env *Environment) Close() {
+	env.OCIRegistry.Close()
 }
 
 type Template struct {
@@ -104,7 +137,6 @@ type Template struct {
 
 func ReplaceTemplate(
 	tmpl Template,
-	gitRepository *gittest.LocalGitRepository,
 ) error {
 	releasesFilePath := filepath.Join(
 		tmpl.TestProjectPath,
@@ -128,14 +160,6 @@ func ReplaceTemplate(
 	defer releasesFile.Close()
 
 	err = parsedTemplate.Execute(releasesFile, tmpl.Data)
-	if err != nil {
-		return err
-	}
-
-	_, err = gitRepository.CommitFile(
-		tmpl.RelativeFilePath,
-		"overwrite template",
-	)
 	if err != nil {
 		return err
 	}

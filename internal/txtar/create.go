@@ -23,27 +23,47 @@ import (
 )
 
 func Create(rootDir string, txtarData io.Reader) (*txtar.Archive, error) {
-	bytes, err := io.ReadAll(txtarData)
+	arch, err := Archive(txtarData)
 	if err != nil {
 		return nil, err
 	}
 
-	arch := txtar.Parse(bytes)
+	err = create(rootDir, arch)
+	if err != nil {
+		return nil, err
+	}
 
+	return arch, nil
+}
+
+func CreateFromArchive(rootDir string, archive *txtar.Archive) error {
+	return create(rootDir, archive)
+}
+
+func create(rootDir string, arch *txtar.Archive) error {
 	for _, file := range arch.Files {
 		absFilePath := filepath.Join(rootDir, file.Name)
 		parentDir := filepath.Dir(absFilePath)
 
 		err := os.MkdirAll(parentDir, 0700)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		err = os.WriteFile(absFilePath, file.Data, 0666)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
+	return nil
+}
 
+func Archive(txtarData io.Reader) (*txtar.Archive, error) {
+	bytes, err := io.ReadAll(txtarData)
+	if err != nil {
+		return nil, err
+	}
+
+	arch := txtar.Parse(bytes)
 	return arch, nil
 }

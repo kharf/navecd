@@ -533,7 +533,7 @@ func TestChartReconciler_Reconcile_HTTP(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -643,7 +643,7 @@ func TestChartReconciler_Reconcile_HTTPAuthSecretNotFound(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -720,7 +720,7 @@ func TestChartReconciler_Reconcile_HTTPAuthSecretRefNotFound(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -795,7 +795,7 @@ func TestChartReconciler_Reconcile_HTTPAuth(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -900,23 +900,24 @@ func TestChartReconciler_Reconcile_OCI(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	registry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
+	defer registry.Close()
 
-	publicOciHelmEnvironment := newHelmEnvironment(
+	helmEnvironment, err := helmtest.NewHelmEnvironment(
 		t,
-		true,
-		false,
-		"",
-		"",
+		helmtest.WithOCI(true),
+		helmtest.WithPrivate(false),
+		helmtest.WithDigest(""),
+		helmtest.WithRegistry(*registry),
 	)
-	defer publicOciHelmEnvironment.Close()
+	assert.NilError(t, err)
+	defer helmEnvironment.Close()
 
 	releaseDeclaration := createReleaseDeclaration(
 		"default",
-		publicOciHelmEnvironment.ChartServer.URL(),
-		fmt.Sprintf("%s@%s", "1.0.0", publicOciHelmEnvironment.V1Digest),
+		helmEnvironment.ChartServer.URL(),
+		fmt.Sprintf("%s@%s", "1.0.0", helmEnvironment.V1Digest),
 		nil,
 		false,
 		Values{},
@@ -999,16 +1000,23 @@ func TestChartReconciler_Reconcile_OCIAuthSecretNotFound(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	registry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
+	defer registry.Close()
 
-	privateOciHelmEnvironment := newHelmEnvironment(t, true, true, "", "")
-	defer privateOciHelmEnvironment.Close()
+	helmEnvironment, err := helmtest.NewHelmEnvironment(
+		t,
+		helmtest.WithOCI(true),
+		helmtest.WithPrivate(true),
+		helmtest.WithDigest(""),
+		helmtest.WithRegistry(*registry),
+	)
+	assert.NilError(t, err)
+	defer helmEnvironment.Close()
 
 	releaseDeclaration := createReleaseDeclaration(
 		"default",
-		privateOciHelmEnvironment.ChartServer.URL(),
+		helmEnvironment.ChartServer.URL(),
 		"1.0.0",
 		&cloud.Auth{
 			SecretRef: &cloud.SecretRef{
@@ -1076,16 +1084,23 @@ func TestChartReconciler_Reconcile_OCIAuthSecretRefNotFound(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	registry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
+	defer registry.Close()
 
-	privateOciHelmEnvironment := newHelmEnvironment(t, true, true, "", "")
-	defer privateOciHelmEnvironment.Close()
+	helmEnvironment, err := helmtest.NewHelmEnvironment(
+		t,
+		helmtest.WithOCI(true),
+		helmtest.WithPrivate(true),
+		helmtest.WithDigest(""),
+		helmtest.WithRegistry(*registry),
+	)
+	assert.NilError(t, err)
+	defer helmEnvironment.Close()
 
 	releaseDeclaration := createReleaseDeclaration(
 		"default",
-		privateOciHelmEnvironment.ChartServer.URL(),
+		helmEnvironment.ChartServer.URL(),
 		"1.0.0",
 		&cloud.Auth{
 			SecretRef: nil,
@@ -1151,16 +1166,23 @@ func TestChartReconciler_Reconcile_OCIAuth(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	registry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
+	defer registry.Close()
 
-	privateOciHelmEnvironment := newHelmEnvironment(t, true, true, "", "")
-	defer privateOciHelmEnvironment.Close()
+	helmEnvironment, err := helmtest.NewHelmEnvironment(
+		t,
+		helmtest.WithOCI(true),
+		helmtest.WithPrivate(true),
+		helmtest.WithDigest(""),
+		helmtest.WithRegistry(*registry),
+	)
+	assert.NilError(t, err)
+	defer helmEnvironment.Close()
 
 	releaseDeclaration := createReleaseDeclaration(
 		"default",
-		privateOciHelmEnvironment.ChartServer.URL(),
+		helmEnvironment.ChartServer.URL(),
 		"1.0.0",
 		&cloud.Auth{
 			SecretRef: &cloud.SecretRef{
@@ -1256,19 +1278,27 @@ func TestChartReconciler_Reconcile_OCIGCPWorkloadIdentity(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	registry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
+	defer registry.Close()
 
-	gcpHelmEnvironment := newHelmEnvironment(t, true, true, cloud.GCP, "")
-	defer gcpHelmEnvironment.Close()
+	helmEnvironment, err := helmtest.NewHelmEnvironment(
+		t,
+		helmtest.WithOCI(true),
+		helmtest.WithPrivate(true),
+		helmtest.WithProvider(cloud.GCP),
+		helmtest.WithDigest(""),
+		helmtest.WithRegistry(*registry),
+	)
+	assert.NilError(t, err)
+	defer helmEnvironment.Close()
 	gcpCloudEnvironment, err := cloudtest.NewGCPEnvironment()
 	assert.NilError(t, err)
 	defer gcpCloudEnvironment.Close()
 
 	releaseDeclaration := createReleaseDeclaration(
 		"default",
-		gcpHelmEnvironment.ChartServer.URL(),
+		helmEnvironment.ChartServer.URL(),
 		"1.0.0",
 		&cloud.Auth{
 			WorkloadIdentity: &cloud.WorkloadIdentity{
@@ -1357,21 +1387,30 @@ func TestChartReconciler_Reconcile_OCIAWSWorkloadIdentity(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	registry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
+	defer registry.Close()
 
-	awsHelmEnvironment := newHelmEnvironment(t, true, true, cloud.AWS, "")
-	defer awsHelmEnvironment.Close()
+	helmEnvironment, err := helmtest.NewHelmEnvironment(
+		t,
+		helmtest.WithOCI(true),
+		helmtest.WithPrivate(true),
+		helmtest.WithProvider(cloud.AWS),
+		helmtest.WithDigest(""),
+		helmtest.WithRegistry(*registry),
+	)
+	assert.NilError(t, err)
+	defer helmEnvironment.Close()
+
 	awsEnvironment, err := cloudtest.NewAWSEnvironment(
-		awsHelmEnvironment.ChartServer.Addr(),
+		helmEnvironment.ChartServer.Addr(),
 	)
 	assert.NilError(t, err)
 	defer awsEnvironment.Close()
 
 	releaseDeclaration := createReleaseDeclaration(
 		"default",
-		fmt.Sprintf("oci://%s", awsEnvironment.ECRServer.URL),
+		fmt.Sprintf("oci://%s", awsEnvironment.RegistryAddr()),
 		"1.0.0",
 		&cloud.Auth{
 			WorkloadIdentity: &cloud.WorkloadIdentity{
@@ -1459,19 +1498,28 @@ func TestChartReconciler_Reconcile_OCIAzureWorkloadIdentity(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	registry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
+	defer registry.Close()
 
-	azureHelmEnvironment := newHelmEnvironment(t, true, true, cloud.Azure, "")
-	defer azureHelmEnvironment.Close()
+	helmEnvironment, err := helmtest.NewHelmEnvironment(
+		t,
+		helmtest.WithOCI(true),
+		helmtest.WithPrivate(true),
+		helmtest.WithProvider(cloud.Azure),
+		helmtest.WithDigest(""),
+		helmtest.WithRegistry(*registry),
+	)
+	assert.NilError(t, err)
+	defer helmEnvironment.Close()
+
 	azureEnvironment, err := cloudtest.NewAzureEnvironment()
 	assert.NilError(t, err)
 	defer azureEnvironment.Close()
 
 	releaseDeclaration := createReleaseDeclaration(
 		"default",
-		azureHelmEnvironment.ChartServer.URL(),
+		helmEnvironment.ChartServer.URL(),
 		"1.0.0",
 		&cloud.Auth{
 			WorkloadIdentity: &cloud.WorkloadIdentity{
@@ -1560,7 +1608,7 @@ func TestChartReconciler_Reconcile_Namespaced(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -1653,7 +1701,7 @@ func TestChartReconciler_Reconcile_Cached(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -1787,7 +1835,7 @@ func TestChartReconciler_Reconcile_InstallPatches(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -1966,7 +2014,7 @@ func TestChartReconciler_Reconcile_Upgrade(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -2088,7 +2136,7 @@ func TestChartReconciler_Reconcile_UpgradeCRDs(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -2210,7 +2258,7 @@ func TestChartReconciler_Reconcile_UpgradeCRDsBreakingChangeWithoutUpgrade(t *te
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -2376,7 +2424,7 @@ func TestChartReconciler_Reconcile_NoUpgrade(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -2492,7 +2540,7 @@ func TestChartReconciler_Reconcile_Conflicts(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -2608,7 +2656,7 @@ func TestChartReconciler_Reconcile_IngoreConflicts(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -2755,7 +2803,7 @@ func TestChartReconciler_Reconcile_PendingUpgradeRecovery(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
@@ -2862,7 +2910,7 @@ func TestChartReconciler_Reconcile_PendingInstallRecovery(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(t, err)
 	defer cueModuleRegistry.Close()
 
