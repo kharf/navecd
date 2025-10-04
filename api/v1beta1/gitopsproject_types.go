@@ -30,12 +30,12 @@ type GitOpsProjectSpec struct {
 	URL string `json:"url"`
 
 	//+kubebuilder:validation:MinLength=1
-	// The branch of the gitops repository holding navecd configuration.
-	Branch string `json:"branch"`
+	// The reference to the gitops repository containing navecd configuration.
+	Ref string `json:"branch"`
 
 	//+kubebuilder:validation:MinLength=1
 	//+kubebuilder:default="."
-	// The directory of the gitops repository holding navecd configuration.
+	// The directory of the gitops repository containing navecd configuration.
 	// Can be "." for root.
 	Dir string `json:"dir"`
 

@@ -172,7 +172,7 @@ func (reconciler *Reconciler) Reconcile(
 	repository, err := reconciler.RepositoryManager.Load(
 		ctx,
 		gProject.Spec.URL,
-		gProject.Spec.Branch,
+		gProject.Spec.Ref,
 		repositoryDir,
 		gProject.Name,
 	)
@@ -228,7 +228,7 @@ func (reconciler *Reconciler) Reconcile(
 				Namespace:  reconciler.Namespace,
 			},
 			Repository:   updateRepository,
-			Branch:       gProject.Spec.Branch,
+			Branch:       gProject.Spec.Ref,
 			Instructions: projectInstance.UpdateInstructions,
 		}); err != nil {
 			log.Error(err, "Unable to update update scheduler")
