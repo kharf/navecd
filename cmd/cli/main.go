@@ -22,6 +22,7 @@ import (
 
 	"github.com/kharf/navecd/pkg/component"
 	"github.com/kharf/navecd/pkg/kube"
+	"github.com/kharf/navecd/pkg/oci"
 	"github.com/kharf/navecd/pkg/project"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -40,10 +41,11 @@ func main() {
 }
 
 type RootCommandBuilder struct {
-	initCommandBuilder    InitCommandBuilder
-	verifyCommandBuilder  VerifyCommandBuilder
-	versionCommandBuilder VersionCommandBuilder
-	installCommandBuilder InstallCommandBuilder
+	initCommandBuilder         InitCommandBuilder
+	verifyCommandBuilder       VerifyCommandBuilder
+	versionCommandBuilder      VersionCommandBuilder
+	installCommandBuilder      InstallCommandBuilder
+	pushArtifactCommandBuilder PushArtifactCommandBuilder
 }
 
 func (builder RootCommandBuilder) Build() *cobra.Command {
@@ -55,6 +57,7 @@ func (builder RootCommandBuilder) Build() *cobra.Command {
 	rootCmd.AddCommand(builder.verifyCommandBuilder.Build())
 	rootCmd.AddCommand(builder.versionCommandBuilder.Build())
 	rootCmd.AddCommand(builder.installCommandBuilder.Build())
+	rootCmd.AddCommand(builder.pushArtifactCommandBuilder.Build())
 	return &rootCmd
 }
 
@@ -111,7 +114,7 @@ func (builder VerifyCommandBuilder) Build() *cobra.Command {
 				-1,
 			)
 
-			instance, err := projectManager.Load(cwd, dir)
+			instance, err := projectManager.Load(context.Background(), cwd, dir)
 			if err != nil {
 				return err
 			}
@@ -148,43 +151,46 @@ type InstallCommandBuilder struct{}
 
 func (builder InstallCommandBuilder) Build() *cobra.Command {
 	ctx := context.Background()
-	var branch string
+	var ref string
 	var url string
 	var dir string
 	var name string
-	var token string
 	var interval int
 	var shard string
-	var persistToken bool
+	var wip string
+	var secretRef string
 	cmd := &cobra.Command{
 		Use:   "install",
-		Short: "Install Navecd on a Kubernetes Cluster",
+		Short: "Install Navecd onto a Kubernetes Cluster",
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			kubeConfig, err := config.GetConfig()
 			if err != nil {
 				return err
 			}
+
 			client, err := kube.NewDynamicClient(kubeConfig)
 			if err != nil {
 				return err
 			}
+
 			wd, err := os.Getwd()
 			if err != nil {
 				return err
 			}
 			httpClient := http.DefaultClient
+
 			action := project.NewInstallAction(client, httpClient, wd)
-			if err := action.Install(ctx,
+			if _, err := action.Install(ctx,
 				project.InstallOptions{
-					Url:          url,
-					Branch:       branch,
-					Dir:          dir,
-					Name:         name,
-					Interval:     interval,
-					Token:        token,
-					Shard:        shard,
-					PersistToken: persistToken,
+					Url:       url,
+					Ref:       ref,
+					Dir:       dir,
+					Name:      name,
+					Interval:  interval,
+					Shard:     shard,
+					WIP:       wip,
+					SecretRef: secretRef,
 				},
 			); err != nil {
 				return err
@@ -192,22 +198,56 @@ func (builder InstallCommandBuilder) Build() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().
-		StringVarP(&branch, "branch", "b", "main", "Branch of the GitOps Repository containing project configuration")
-	cmd.Flags().
-		StringVar(&dir, "dir", ".", "Dir of the GitOps Repository containing project configuration")
-	cmd.Flags().StringVarP(&url, "url", "u", "", "Url to the GitOps repository")
-	cmd.Flags().
-		StringVar(&name, "name", "", "Name of the GitOps Project")
-	cmd.Flags().StringVarP(&token, "token", "t", "", "Access token used for authentication")
-	cmd.Flags().
-		IntVarP(&interval, "interval", "i", 30, "Definition of how often Navecd will reconcile its cluster state. Value is defined in seconds")
-	cmd.Flags().
-		StringVar(&shard, "shard", "primary", "Instance associated with the Navecd Project")
-	cmd.Flags().
-		BoolVar(&persistToken, "persist-token", false, "When true, the access token is stored as a kubernetes secret, which is needed for pull request creation")
+	cmd.Flags().StringVarP(&url, "url", "u", "", "Url to the OCI GitOps Repository")
+	cmd.Flags().StringVarP(&ref, "ref", "r", "main", "Ref to the OCI GitOps Repository")
+	cmd.Flags().StringVar(&dir, "dir", ".", "Dir of the GitOps Project Configuration inside the OCI GitOps Repository")
+	cmd.Flags().StringVar(&name, "name", "", "Name of the GitOps Project")
+	cmd.Flags().IntVarP(&interval, "interval", "i", 30, "Definition of how often Navecd will reconcile its cluster state. Value is defined in seconds")
+	cmd.Flags().StringVar(&shard, "shard", "primary", "Navecd Instance/Shard responsible for reconciliation")
+	cmd.Flags().StringVar(&wip, "wip", "", "Workload Identity Provider used for OCI registry access. Supported values are 'aws', 'azure' and 'gcp'")
+	cmd.Flags().StringVar(&secretRef, "secret", "", "Reference to the Kubernetes secret containing the OCI registry credentials in the Navecd controller namespace")
 
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("url")
+	_ = cmd.MarkFlagRequired("ref")
+	return cmd
+}
+
+type PushArtifactCommandBuilder struct{}
+
+func (builder PushArtifactCommandBuilder) Build() *cobra.Command {
+	var ref string
+	var url string
+	cmd := &cobra.Command{
+		Use:   "push",
+		Short: "Builds and pushes a Navecd Project OCI artifact to the specified OCI Repository",
+		Args:  cobra.MinimumNArgs(2),
+		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			ociClient, err := oci.NewRepositoryClient(url)
+			if err != nil {
+				return err
+			}
+			projectClient := oci.NewProjectClient(ociClient)
+
+			digest, err := projectClient.PushImageFromPath(
+				ref,
+				cwd,
+			)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("pushed %s:%s with digest %s\n", url, ref, digest)
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&url, "url", "u", "", "Url to the OCI GitOps Repository")
+	cmd.Flags().StringVarP(&ref, "ref", "r", "main", "Ref to the OCI GitOps Repository")
+
+	_ = cmd.MarkFlagRequired("url")
+	_ = cmd.MarkFlagRequired("ref")
 	return cmd
 }

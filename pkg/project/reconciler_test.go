@@ -20,16 +20,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"slices"
 	"testing"
-	"time"
 
-	"cuelabs.dev/go/oci/ociregistry"
-	"github.com/go-git/go-git/v5"
 	gitops "github.com/kharf/navecd/api/v1beta1"
-	"github.com/kharf/navecd/internal/cloudtest"
 	"github.com/kharf/navecd/internal/dnstest"
 	"github.com/kharf/navecd/internal/helmtest"
 	"github.com/kharf/navecd/internal/kubetest"
@@ -42,11 +37,7 @@ import (
 	"github.com/kharf/navecd/pkg/inventory"
 	"github.com/kharf/navecd/pkg/kube"
 	"github.com/kharf/navecd/pkg/project"
-	"github.com/kharf/navecd/pkg/version"
-	"github.com/opencontainers/go-digest"
 	"gotest.tools/v3/assert"
-	"gotest.tools/v3/assert/cmp"
-	"gotest.tools/v3/poll"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -56,9 +47,8 @@ import (
 )
 
 type broadProjectTemplate struct {
-	template   string
-	data       broadTemplateData
-	containers []string
+	template string
+	data     broadTemplateData
 }
 
 func (tmpl *broadProjectTemplate) Template() string {
@@ -67,10 +57,6 @@ func (tmpl *broadProjectTemplate) Template() string {
 
 func (tmpl *broadProjectTemplate) Data() any {
 	return tmpl.data
-}
-
-func (tmpl *broadProjectTemplate) Containers() []string {
-	return tmpl.containers
 }
 
 var _ testtemplates.Template = (*broadProjectTemplate)(nil)
@@ -153,7 +139,7 @@ release: component.#HelmRelease & {
 		name:    "test"
 		repoURL: "{{.HelmRepoURL}}"
 		version: "1.0.0"
-	} @update(constraint="<=2.0.0", integration=direct, schedule="* * * * * *")
+	}
 
 	crds: {
 		allowUpgrade: true
@@ -179,7 +165,7 @@ release: component.#HelmRelease & {
 						containers: [
 							{
 								name:  "toolb"
-								image: "{{.ContainerRegistry}}/toolb:1.14.2" @update(constraint="*", integration=direct, schedule="* * * * * *")
+								image: "{{.ContainerRegistry}}/toolb:1.14.2"
 								ports: [{
 									containerPort: 80
 								}]
@@ -267,7 +253,7 @@ _deployment: {
 				containers: [
 					{
 						name:  "containerone"
-						image: "{{.ContainerRegistry}}/containerone:1.14.2" @update(strategy=semver, constraint="1.2.x", integration=direct, schedule="* * * * * *")
+						image: "{{.ContainerRegistry}}/containerone:1.14.2"
 						ports: [{
 							name:          "http"
 							containerPort: 80
@@ -275,7 +261,7 @@ _deployment: {
 					},
 					{
 						name:  "containertwo"
-						image: "{{.ContainerRegistry}}/containertwo:1.14.2" @update(strategy=semver, constraint="<=1.16", integration=direct, schedule="* * * * * *")
+						image: "{{.ContainerRegistry}}/containertwo:1.14.2"
 						ports: [{
 							name:          "http"
 							containerPort: 80
@@ -321,13 +307,6 @@ _anotherDeployment: {
 }
 `, testtemplates.ModuleVersion),
 		data: data,
-		containers: []string{
-			"containerone",
-			"containertwo",
-			"toolb",
-			"sidecar",
-			"subcomponent",
-		},
 	}
 }
 
@@ -338,23 +317,21 @@ func TestReconciler_Reconcile(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	registryPath := t.TempDir()
-
-	cueModuleRegistry, err := ocitest.StartCUERegistry(registryPath)
-	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
+	env := projecttest.InitTestEnvironment(
+		t,
+	)
+	defer env.Close()
 
 	publicHelmEnvironment, err := helmtest.NewHelmEnvironment(
 		t,
 		helmtest.WithOCI(false),
 		helmtest.WithPrivate(false),
+		helmtest.WithRegistry(*env.OCIRegistry),
 	)
 	assert.NilError(t, err)
 	defer publicHelmEnvironment.Close()
 
-	tlsRegistry, err := ocitest.NewTLSRegistry(false, "")
-	assert.NilError(t, err)
-	defer tlsRegistry.Close()
+	tlsRegistry := env.OCIRegistry
 
 	broadTemplate := useBroadTemplate(
 		broadTemplateData{
@@ -363,60 +340,26 @@ func TestReconciler_Reconcile(t *testing.T) {
 			ContainerRegistry: tlsRegistry.Addr(),
 		},
 	)
-	for _, container := range broadTemplate.Containers() {
-		manifest := ociregistry.Manifest{
-			MediaType: "application/vnd.oci.image.manifest.v1+json",
-			Annotations: map[string]string{
-				"org.opencontainers.image.url": "test",
-			},
-			Config: ociregistry.Descriptor{
-				Digest: digest.FromString(""),
-			},
-		}
-
-		bytes, err := json.Marshal(&manifest)
-		assert.NilError(t, err)
-		desc, err := tlsRegistry.PushManifest(
-			ctx,
-			container,
-			"1.15.3",
-			bytes,
-			"application/vnd.docker.distribution.manifest.v2+json",
-		)
-		assert.NilError(t, err)
-		defer tlsRegistry.DeleteManifest(ctx, container, desc.Digest)
-	}
 
 	parsedTemplate, err := testtemplates.Parse(broadTemplate)
 	assert.NilError(t, err)
-	env := projecttest.InitTestEnvironment(
-		t,
-		parsedTemplate,
-	)
+
+	repository := env.PushProject(t, "test", "latest", parsedTemplate)
 
 	kubernetes := kubetest.StartKubetestEnv(t, env.Log, kubetest.WithEnabled(true))
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
-	assert.NilError(t, err)
-	scheduler.Start()
-	defer func() {
-		scheduler.Shutdown()
-		quitChan <- struct{}{}
-	}()
-
 	reconciler := project.Reconciler{
 		KubeConfig:            kubernetes.ControlPlane.Config,
 		ComponentBuilder:      component.NewBuilder(),
-		RepositoryManager:     kubernetes.RepositoryManager,
 		ProjectManager:        projectManager,
 		Log:                   env.Log,
 		FieldManager:          "controller",
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		UpdateScheduler:       scheduler,
+		InventoryRootDir:      filepath.Join(env.TestRoot, "inventory"),
 	}
 
 	suspend := false
@@ -428,19 +371,18 @@ func TestReconciler_Reconcile(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
-			UID:       types.UID(env.TestRoot),
+			UID:       types.UID("12345"),
 		},
 		Spec: gitops.GitOpsProjectSpec{
-			URL:                 env.TestProject,
-			Branch:              "main",
+			URL:                 repository.Name,
+			Ref:                 repository.Ref,
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
 	}
 
 	inventoryInstance := &inventory.Instance{
-		// /inventory is mounted as volume.
-		Path: filepath.Join("/inventory", string(gProject.GetUID())),
+		Path: filepath.Join(reconciler.InventoryRootDir, string(gProject.GetUID())),
 	}
 
 	result, err := reconciler.Reconcile(ctx, gProject)
@@ -636,65 +578,6 @@ func TestReconciler_Reconcile(t *testing.T) {
 		),
 	}
 	assert.Assert(t, inventoryStorage.HasItem(subComponentDeploymentManifest))
-
-	check := func(t poll.LogT) poll.Result {
-		_, err = reconciler.Reconcile(ctx, gProject)
-		if err != nil {
-			return poll.Error(err)
-		}
-
-		var mysubcomponent appsv1.Deployment
-		err = kubernetes.TestKubeClient.Get(
-			ctx,
-			types.NamespacedName{Name: "mysubcomponent", Namespace: ns},
-			&mysubcomponent,
-		)
-
-		if err != nil {
-			return poll.Error(err)
-		}
-
-		subcomponentContainers := mysubcomponent.Spec.Template.Spec.Containers
-		return poll.Compare(cmp.Equal(
-			slices.ContainsFunc(subcomponentContainers, func(container corev1.Container) bool {
-				return container.Name == "containertwo" &&
-					container.Image == fmt.Sprintf("%s/containertwo:1.15.3", tlsRegistry.Addr())
-			}), true,
-		))
-	}
-
-	poll.WaitOn(t, check, poll.WithDelay(1*time.Second))
-
-	err = env.GitRepository.Worktree.Pull(&git.PullOptions{Force: true})
-	assert.NilError(t, err)
-	err = os.RemoveAll(
-		filepath.Join(env.LocalTestProject, "infra", "toolb", "subtool"),
-	)
-	assert.NilError(t, err)
-	_, err = env.GitRepository.Worktree.Add(".")
-	assert.NilError(t, err)
-	_, err = env.GitRepository.CommitFile(
-		".",
-		"undeploy subcomponent",
-	)
-	assert.NilError(t, err)
-	_, err = reconciler.Reconcile(ctx, gProject)
-	assert.NilError(t, err)
-
-	inventoryStorage, err = inventoryInstance.Load()
-	assert.NilError(t, err)
-
-	invComponents = inventoryStorage.Items()
-	assert.Assert(t, len(invComponents) == 4)
-	assert.Assert(t, !inventoryStorage.HasItem(subComponentDeploymentManifest))
-	assert.Assert(t, inventoryStorage.HasItem(invNs))
-	assert.Assert(t, inventoryStorage.HasItem(testHR))
-	err = kubernetes.TestKubeClient.Get(
-		ctx,
-		types.NamespacedName{Name: "mysubcomponent", Namespace: ns},
-		&mysubcomponent,
-	)
-	assert.Error(t, err, "deployments.apps \"mysubcomponent\" not found")
 }
 
 func useMiniTemplate() string {
@@ -780,40 +663,27 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	registryPath := t.TempDir()
-
-	cueModuleRegistry, err := ocitest.StartCUERegistry(registryPath)
-	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
-
 	env := projecttest.InitTestEnvironment(
 		t,
-		[]byte(useMiniTemplate()),
 	)
+	defer env.Close()
+
+	repository := env.PushProject(t, "test", "latest", []byte(useMiniTemplate()))
 
 	kubernetes := kubetest.StartKubetestEnv(t, env.Log, kubetest.WithEnabled(true))
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
-	assert.NilError(t, err)
-	scheduler.Start()
-	defer func() {
-		scheduler.Shutdown()
-		quitChan <- struct{}{}
-	}()
-
 	reconciler := project.Reconciler{
 		KubeConfig:            kubernetes.ControlPlane.Config,
 		ComponentBuilder:      component.NewBuilder(),
-		RepositoryManager:     kubernetes.RepositoryManager,
 		ProjectManager:        projectManager,
 		Log:                   env.Log,
 		FieldManager:          "controller",
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		UpdateScheduler:       scheduler,
+		InventoryRootDir:      filepath.Join(env.TestRoot, "inventory"),
 	}
 
 	suspend := false
@@ -825,11 +695,11 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test",
 			Namespace: "tenant",
-			UID:       types.UID(env.TestRoot),
+			UID:       types.UID("12345"),
 		},
 		Spec: gitops.GitOpsProjectSpec{
-			URL:                 env.TestProject,
-			Branch:              "main",
+			URL:                 repository.Name,
+			Ref:                 repository.Ref,
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -838,7 +708,7 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 	gProject.Spec.ServiceAccountName = "mysa"
 	result, err := reconciler.Reconcile(ctx, gProject)
 	assert.NilError(t, err)
-	assert.NilError(t, result.PullError)
+	assert.NilError(t, result.DownloadError)
 	assert.Assert(t, result.ComponentError != nil)
 	assert.ErrorContains(
 		t,
@@ -939,8 +809,7 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 	assert.Equal(t, ns.Name, nsName)
 
 	inventoryInstance := &inventory.Instance{
-		// /inventory is mounted as volume.
-		Path: filepath.Join("/inventory", string(gProject.GetUID())),
+		Path: filepath.Join(reconciler.InventoryRootDir, string(gProject.GetUID())),
 	}
 	inventoryStorage, err := inventoryInstance.Load()
 	assert.NilError(t, err)
@@ -956,138 +825,6 @@ func TestReconciler_Reconcile_Impersonation(t *testing.T) {
 		ID:   fmt.Sprintf("%s_%s__Namespace", ns.Name, ns.Namespace),
 	}
 	assert.Assert(t, inventoryStorage.HasItem(nsManifest))
-}
-
-func TestReconciler_Reconcile_GitPullError(t *testing.T) {
-	ctx := context.Background()
-	dnsServer, err := dnstest.NewDNSServer()
-	assert.NilError(t, err)
-	defer dnsServer.Close()
-
-	registryPath := t.TempDir()
-
-	cueModuleRegistry, err := ocitest.StartCUERegistry(registryPath)
-	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
-
-	env := projecttest.InitTestEnvironment(
-		t,
-		[]byte(useMiniTemplate()),
-	)
-
-	kubernetes := kubetest.StartKubetestEnv(t, env.Log, kubetest.WithEnabled(true))
-	defer kubernetes.Stop()
-	projectManager := project.NewManager(component.NewBuilder(), -1)
-
-	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
-	assert.NilError(t, err)
-	scheduler.Start()
-	defer func() {
-		scheduler.Shutdown()
-		quitChan <- struct{}{}
-	}()
-
-	reconciler := project.Reconciler{
-		KubeConfig:            kubernetes.ControlPlane.Config,
-		ComponentBuilder:      component.NewBuilder(),
-		RepositoryManager:     kubernetes.RepositoryManager,
-		ProjectManager:        projectManager,
-		Log:                   env.Log,
-		FieldManager:          "controller",
-		WorkerPoolSize:        -1,
-		InsecureSkipTLSverify: true,
-		CacheDir:              env.TestRoot,
-		UpdateScheduler:       scheduler,
-	}
-
-	suspend := false
-	gProject := gitops.GitOpsProject{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: "gitops.navecd.io/v1",
-			Kind:       "GitOpsProject",
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "test",
-			Namespace: "tenant",
-			UID:       types.UID(env.TestRoot),
-		},
-		Spec: gitops.GitOpsProjectSpec{
-			URL:                 env.TestProject,
-			Branch:              "main",
-			PullIntervalSeconds: 5,
-			Suspend:             &suspend,
-		},
-	}
-
-	namespace := corev1.Namespace{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: "",
-			Kind:       "Namespace",
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: "tenant",
-		},
-	}
-
-	err = kubernetes.TestKubeClient.Create(ctx, &namespace)
-	assert.NilError(t, err)
-
-	serviceAccount := corev1.ServiceAccount{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: "",
-			Kind:       "ServiceAccount",
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "mysa",
-			Namespace: "tenant",
-		},
-	}
-
-	err = kubernetes.TestKubeClient.Create(ctx, &serviceAccount)
-	assert.NilError(t, err)
-
-	result, err := reconciler.Reconcile(ctx, gProject)
-	assert.NilError(t, err)
-	assert.Equal(t, result.Suspended, false)
-	assert.NilError(t, result.PullError)
-	assert.NilError(t, result.ComponentError)
-
-	nsName := "toola"
-
-	var ns corev1.Namespace
-	err = kubernetes.TestKubeClient.Get(
-		ctx,
-		types.NamespacedName{Name: nsName},
-		&ns,
-	)
-	assert.NilError(t, err)
-	assert.Equal(t, ns.Name, nsName)
-
-	inventoryInstance := &inventory.Instance{
-		Path: filepath.Join("/inventory", string(gProject.GetUID())),
-	}
-	inventoryStorage, err := inventoryInstance.Load()
-	assert.NilError(t, err)
-
-	invComponents := inventoryStorage.Items()
-	assert.Assert(t, len(invComponents) == 1)
-	nsManifest := &inventory.ManifestItem{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Namespace",
-		},
-		Name: ns.Name,
-		ID:   fmt.Sprintf("%s_%s__Namespace", ns.Name, ns.Namespace),
-	}
-	assert.Assert(t, inventoryStorage.HasItem(nsManifest))
-
-	err = os.RemoveAll(env.TestProject)
-	assert.NilError(t, err)
-
-	result, err = reconciler.Reconcile(ctx, gProject)
-	assert.NilError(t, err)
-	assert.NilError(t, result.ComponentError)
-	assert.ErrorContains(t, result.PullError, "repository not found")
 }
 
 func TestReconciler_Reconcile_ComponentError(t *testing.T) {
@@ -1096,40 +833,27 @@ func TestReconciler_Reconcile_ComponentError(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	registryPath := t.TempDir()
-
-	cueModuleRegistry, err := ocitest.StartCUERegistry(registryPath)
-	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
-
 	env := projecttest.InitTestEnvironment(
 		t,
-		[]byte(useMiniTemplate()),
 	)
+	defer env.Close()
+
+	repository := env.PushProject(t, "test", "latest", []byte(useMiniTemplate()))
 
 	kubernetes := kubetest.StartKubetestEnv(t, env.Log, kubetest.WithEnabled(true))
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
-	assert.NilError(t, err)
-	scheduler.Start()
-	defer func() {
-		scheduler.Shutdown()
-		quitChan <- struct{}{}
-	}()
-
 	reconciler := project.Reconciler{
 		KubeConfig:            kubernetes.ControlPlane.Config,
 		ComponentBuilder:      component.NewBuilder(),
-		RepositoryManager:     kubernetes.RepositoryManager,
 		ProjectManager:        projectManager,
 		Log:                   env.Log,
 		FieldManager:          "controller",
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		UpdateScheduler:       scheduler,
+		InventoryRootDir:      filepath.Join(env.TestRoot, "inventory"),
 	}
 
 	suspend := false
@@ -1141,12 +865,12 @@ func TestReconciler_Reconcile_ComponentError(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test",
 			Namespace: "tenant",
-			UID:       types.UID(env.TestRoot),
+			UID:       types.UID("12345"),
 		},
 		Spec: gitops.GitOpsProjectSpec{
 			ServiceAccountName:  "unprivileged",
-			URL:                 env.TestProject,
-			Branch:              "main",
+			URL:                 repository.Name,
+			Ref:                 repository.Ref,
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -1155,7 +879,7 @@ func TestReconciler_Reconcile_ComponentError(t *testing.T) {
 	result, err := reconciler.Reconcile(ctx, gProject)
 	assert.NilError(t, err)
 	assert.Equal(t, result.Suspended, false)
-	assert.NilError(t, result.PullError)
+	assert.NilError(t, result.DownloadError)
 	assert.ErrorContains(
 		t,
 		result.ComponentError,
@@ -1226,7 +950,7 @@ deployment: component.#Manifest & {
 					containers: [
 						{
 							name:  "subcomponent"
-							image: "{{.ContainerRegistry}}/subcomponent:1.14.2" @update(constraint="*", wi=aws, integration=direct, schedule="* * * * * *")
+							image: "{{.ContainerRegistry}}/subcomponent:1.14.2"
 							ports: [{
 								name:          "http"
 								containerPort: 80
@@ -1250,7 +974,7 @@ release: component.#HelmRelease & {
 		repoURL: "{{.HelmRepoURL}}"
 		version: "1.0.0"
 		auth:    workloadidentity.#AWS
-	} @update(constraint="*", integration=direct, schedule="* * * * * *")
+	}
 
 	crds: {
 		allowUpgrade: true
@@ -1288,83 +1012,50 @@ func TestReconciler_Reconcile_WorkloadIdentity(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	registryPath := t.TempDir()
-
-	cueModuleRegistry, err := ocitest.StartCUERegistry(registryPath)
-	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
+	env := projecttest.InitTestEnvironment(
+		t,
+		ocitest.WithPrivate(true),
+		ocitest.WithProvider(cloud.AWS),
+	)
+	defer env.Close()
 
 	helmEnv, err := helmtest.NewHelmEnvironment(
 		t,
 		helmtest.WithOCI(true),
 		helmtest.WithPrivate(true),
 		helmtest.WithProvider(cloud.AWS),
+		helmtest.WithRegistry(*env.OCIRegistry),
 	)
 	assert.NilError(t, err)
 	defer helmEnv.Close()
 
-	aws, err := cloudtest.NewAWSEnvironment(helmEnv.ChartServer.Addr())
-	assert.NilError(t, err)
-	defer aws.Close()
-
 	workloadIdentityTemplate := useWorkloadIdentityTemplate(
 		workloadIdentityTemplateData{
 			Name:              "test",
-			HelmRepoURL:       fmt.Sprintf("oci://%s", aws.ECRServer.URL),
-			ContainerRegistry: aws.ECRServer.URL,
+			HelmRepoURL:       fmt.Sprintf("oci://%s", env.OCIRegistry.Addr()),
+			ContainerRegistry: env.OCIRegistry.Addr(),
 		},
 	)
-
-	registry := helmEnv.ChartServer.(*helmtest.OciRegistry)
-	manifest := ociregistry.Manifest{
-		MediaType:   "application/vnd.oci.image.manifest.v1+json",
-		Annotations: map[string]string{},
-		Config: ociregistry.Descriptor{
-			Digest: digest.FromString(""),
-		},
-	}
-	bytes, err := json.Marshal(&manifest)
-	assert.NilError(t, err)
-
-	_, err = registry.Server.PushManifest(
-		ctx,
-		"subcomponent",
-		"1.15.0",
-		bytes,
-		"application/vnd.docker.distribution.manifest.v2+json",
-	)
-	assert.NilError(t, err)
 
 	parsedTemplate, err := testtemplates.Parse(workloadIdentityTemplate)
 	assert.NilError(t, err)
-	env := projecttest.InitTestEnvironment(
-		t,
-		parsedTemplate,
-	)
+
+	repository := env.PushProject(t, "test", "latest", parsedTemplate)
 
 	kubernetes := kubetest.StartKubetestEnv(t, env.Log, kubetest.WithEnabled(true))
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
-	assert.NilError(t, err)
-	scheduler.Start()
-	defer func() {
-		scheduler.Shutdown()
-		quitChan <- struct{}{}
-	}()
-
 	reconciler := project.Reconciler{
 		KubeConfig:            kubernetes.ControlPlane.Config,
 		ComponentBuilder:      component.NewBuilder(),
-		RepositoryManager:     kubernetes.RepositoryManager,
 		ProjectManager:        projectManager,
 		Log:                   env.Log,
 		FieldManager:          "controller",
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		UpdateScheduler:       scheduler,
+		InventoryRootDir:      filepath.Join(env.TestRoot, "inventory"),
 	}
 
 	suspend := false
@@ -1376,19 +1067,23 @@ func TestReconciler_Reconcile_WorkloadIdentity(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
-			UID:       types.UID(env.TestRoot),
+			UID:       types.UID("12345"),
 		},
 		Spec: gitops.GitOpsProjectSpec{
-			URL:                 env.TestProject,
-			Branch:              "main",
+			URL: repository.Name,
+			Ref: repository.Ref,
+			Auth: &cloud.Auth{
+				WorkloadIdentity: &cloud.WorkloadIdentity{
+					Provider: cloud.AWS,
+				},
+			},
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
 	}
 
 	inventoryInstance := &inventory.Instance{
-		// /inventory is mounted as volume.
-		Path: filepath.Join("/inventory", string(gProject.GetUID())),
+		Path: filepath.Join(reconciler.InventoryRootDir, string(gProject.GetUID())),
 	}
 
 	result, err := reconciler.Reconcile(ctx, gProject)
@@ -1417,45 +1112,25 @@ func TestReconciler_Reconcile_WorkloadIdentity(t *testing.T) {
 	assert.Equal(t, dep.Name, "deployment")
 	assert.Equal(t, dep.Namespace, toolaNs)
 
-	check := func(t poll.LogT) poll.Result {
-		_, err = reconciler.Reconcile(ctx, gProject)
-		if err != nil {
-			return poll.Error(err)
-		}
+	var svcAcc corev1.ServiceAccount
+	err = kubernetes.TestKubeClient.Get(
+		ctx,
+		types.NamespacedName{Name: "test", Namespace: toolaNs},
+		&svcAcc,
+	)
+	assert.NilError(t, err)
 
-		// does not exist in chart v3 and therefore would mean that updates worked.
-		var svcAcc corev1.ServiceAccount
-		err = kubernetes.TestKubeClient.Get(
-			ctx,
-			types.NamespacedName{Name: "test", Namespace: toolaNs},
-			&svcAcc,
-		)
-		if err == nil {
-			return poll.Continue("service account still found")
-		}
+	inventoryStorage, err := inventoryInstance.Load()
+	assert.NilError(t, err)
 
-		if err.Error() != "serviceaccounts \"test\" not found" {
-			return poll.Error(err)
-		}
-
-		inventoryStorage, err := inventoryInstance.Load()
-		if err != nil {
-			return poll.Error(err)
-		}
-
-		invComponents := inventoryStorage.Items()
-		if len(invComponents) != 3 {
-			return poll.Continue("expected inventory to contain 3 items")
-		}
-		testHR := &inventory.HelmReleaseItem{
-			Name:      testDep.Name,
-			Namespace: testDep.Namespace,
-			ID:        fmt.Sprintf("%s_%s_HelmRelease", testDep.Name, testDep.Namespace),
-		}
-		return poll.Compare(cmp.Equal(inventoryStorage.HasItem(testHR), true))
+	invComponents := inventoryStorage.Items()
+	assert.Assert(t, len(invComponents) == 3, "got %v", len(invComponents))
+	testHR := &inventory.HelmReleaseItem{
+		Name:      testDep.Name,
+		Namespace: testDep.Namespace,
+		ID:        fmt.Sprintf("%s_%s_HelmRelease", testDep.Name, testDep.Namespace),
 	}
-
-	poll.WaitOn(t, check, poll.WithDelay(1*time.Second))
+	assert.Assert(t, inventoryStorage.HasItem(testHR))
 }
 
 func TestReconciler_Reconcile_Suspend(t *testing.T) {
@@ -1465,23 +1140,21 @@ func TestReconciler_Reconcile_Suspend(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	registryPath := t.TempDir()
-
-	cueModuleRegistry, err := ocitest.StartCUERegistry(registryPath)
-	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
+	env := projecttest.InitTestEnvironment(
+		t,
+	)
+	defer env.Close()
 
 	publicHelmEnvironment, err := helmtest.NewHelmEnvironment(
 		t,
 		helmtest.WithOCI(false),
 		helmtest.WithPrivate(false),
+		helmtest.WithRegistry(*env.OCIRegistry),
 	)
 	assert.NilError(t, err)
 	defer publicHelmEnvironment.Close()
 
-	tlsRegistry, err := ocitest.NewTLSRegistry(false, "")
-	assert.NilError(t, err)
-	defer tlsRegistry.Close()
+	tlsRegistry := env.OCIRegistry
 
 	broadTemplate := useBroadTemplate(
 		broadTemplateData{
@@ -1490,24 +1163,11 @@ func TestReconciler_Reconcile_Suspend(t *testing.T) {
 			ContainerRegistry: tlsRegistry.Addr(),
 		},
 	)
-	for _, container := range broadTemplate.Containers() {
-		desc, err := tlsRegistry.PushManifest(
-			ctx,
-			container,
-			"1.15.3",
-			[]byte{},
-			"application/vnd.docker.distribution.manifest.v2+json",
-		)
-		assert.NilError(t, err)
-		defer tlsRegistry.DeleteManifest(ctx, container, desc.Digest)
-	}
 
 	parsedTemplate, err := testtemplates.Parse(broadTemplate)
 	assert.NilError(t, err)
-	env := projecttest.InitTestEnvironment(
-		t,
-		parsedTemplate,
-	)
+
+	repository := env.PushProject(t, "test", "latest", parsedTemplate)
 
 	kubernetes := kubetest.StartKubetestEnv(t, env.Log, kubetest.WithEnabled(true))
 	defer kubernetes.Stop()
@@ -1516,13 +1176,13 @@ func TestReconciler_Reconcile_Suspend(t *testing.T) {
 	reconciler := project.Reconciler{
 		KubeConfig:            kubernetes.ControlPlane.Config,
 		ComponentBuilder:      component.NewBuilder(),
-		RepositoryManager:     kubernetes.RepositoryManager,
 		ProjectManager:        projectManager,
 		Log:                   env.Log,
 		FieldManager:          "controller",
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
+		InventoryRootDir:      filepath.Join(env.TestRoot, "inventory"),
 	}
 
 	suspend := true
@@ -1534,11 +1194,11 @@ func TestReconciler_Reconcile_Suspend(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
-			UID:       types.UID(env.TestRoot),
+			UID:       types.UID("12345"),
 		},
 		Spec: gitops.GitOpsProjectSpec{
-			URL:                 env.TestProject,
-			Branch:              "main",
+			URL:                 repository.Name,
+			Ref:                 repository.Ref,
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -1564,23 +1224,21 @@ func TestReconciler_Reconcile_Conflict(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	registryPath := t.TempDir()
-
-	cueModuleRegistry, err := ocitest.StartCUERegistry(registryPath)
-	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
+	env := projecttest.InitTestEnvironment(
+		t,
+	)
+	defer env.Close()
 
 	publicHelmEnvironment, err := helmtest.NewHelmEnvironment(
 		t,
 		helmtest.WithOCI(false),
 		helmtest.WithPrivate(false),
+		helmtest.WithRegistry(*env.OCIRegistry),
 	)
 	assert.NilError(t, err)
 	defer publicHelmEnvironment.Close()
 
-	tlsRegistry, err := ocitest.NewTLSRegistry(false, "")
-	assert.NilError(t, err)
-	defer tlsRegistry.Close()
+	tlsRegistry := env.OCIRegistry
 
 	broadTemplate := useBroadTemplate(
 		broadTemplateData{
@@ -1589,61 +1247,26 @@ func TestReconciler_Reconcile_Conflict(t *testing.T) {
 			ContainerRegistry: tlsRegistry.Addr(),
 		},
 	)
-	for _, container := range broadTemplate.Containers() {
-		manifest := ociregistry.Manifest{
-			MediaType: "application/vnd.oci.image.manifest.v1+json",
-			Annotations: map[string]string{
-				"org.opencontainers.image.url": "test",
-			},
-			Config: ociregistry.Descriptor{
-				Digest: digest.FromString(""),
-			},
-		}
-
-		bytes, err := json.Marshal(&manifest)
-		assert.NilError(t, err)
-
-		desc, err := tlsRegistry.PushManifest(
-			ctx,
-			container,
-			"1.15.3",
-			bytes,
-			"application/vnd.docker.distribution.manifest.v2+json",
-		)
-		assert.NilError(t, err)
-		defer tlsRegistry.DeleteManifest(ctx, container, desc.Digest)
-	}
 
 	parsedTemplate, err := testtemplates.Parse(broadTemplate)
 	assert.NilError(t, err)
-	env := projecttest.InitTestEnvironment(
-		t,
-		parsedTemplate,
-	)
+
+	repository := env.PushProject(t, "test", "latest", parsedTemplate)
 
 	kubernetes := kubetest.StartKubetestEnv(t, env.Log, kubetest.WithEnabled(true))
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
-	assert.NilError(t, err)
-	scheduler.Start()
-	defer func() {
-		scheduler.Shutdown()
-		quitChan <- struct{}{}
-	}()
-
 	reconciler := project.Reconciler{
 		KubeConfig:            kubernetes.ControlPlane.Config,
 		ComponentBuilder:      component.NewBuilder(),
-		RepositoryManager:     kubernetes.RepositoryManager,
 		ProjectManager:        projectManager,
 		Log:                   env.Log,
 		FieldManager:          "controller",
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		UpdateScheduler:       scheduler,
+		InventoryRootDir:      filepath.Join(env.TestRoot, "inventory"),
 	}
 
 	suspend := false
@@ -1655,11 +1278,11 @@ func TestReconciler_Reconcile_Conflict(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
-			UID:       types.UID(env.TestRoot),
+			UID:       types.UID("12345"),
 		},
 		Spec: gitops.GitOpsProjectSpec{
-			URL:                 env.TestProject,
-			Branch:              "main",
+			URL:                 repository.Name,
+			Ref:                 repository.Ref,
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -1752,23 +1375,21 @@ func TestReconciler_Reconcile_IgnoreConflicts(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	registryPath := t.TempDir()
-
-	cueModuleRegistry, err := ocitest.StartCUERegistry(registryPath)
-	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
+	env := projecttest.InitTestEnvironment(
+		t,
+	)
+	defer env.Close()
 
 	publicHelmEnvironment, err := helmtest.NewHelmEnvironment(
 		t,
 		helmtest.WithOCI(false),
 		helmtest.WithPrivate(false),
+		helmtest.WithRegistry(*env.OCIRegistry),
 	)
 	assert.NilError(t, err)
 	defer publicHelmEnvironment.Close()
 
-	tlsRegistry, err := ocitest.NewTLSRegistry(false, "")
-	assert.NilError(t, err)
-	defer tlsRegistry.Close()
+	tlsRegistry := env.OCIRegistry
 
 	broadTemplate := useBroadTemplate(
 		broadTemplateData{
@@ -1777,62 +1398,27 @@ func TestReconciler_Reconcile_IgnoreConflicts(t *testing.T) {
 			ContainerRegistry: tlsRegistry.Addr(),
 		},
 	)
-	for _, container := range broadTemplate.Containers() {
-		manifest := ociregistry.Manifest{
-			MediaType: "application/vnd.oci.image.manifest.v1+json",
-			Annotations: map[string]string{
-				"org.opencontainers.image.url": "test",
-			},
-			Config: ociregistry.Descriptor{
-				Digest: digest.FromString(""),
-			},
-		}
-
-		bytes, err := json.Marshal(&manifest)
-		assert.NilError(t, err)
-
-		desc, err := tlsRegistry.PushManifest(
-			ctx,
-			container,
-			"1.15.3",
-			bytes,
-			"application/vnd.docker.distribution.manifest.v2+json",
-		)
-		assert.NilError(t, err)
-		defer tlsRegistry.DeleteManifest(ctx, container, desc.Digest)
-	}
 
 	parsedTemplate, err := testtemplates.Parse(broadTemplate)
 	assert.NilError(t, err)
-	env := projecttest.InitTestEnvironment(
-		t,
-		parsedTemplate,
-	)
+
+	repository := env.PushProject(t, "test", "latest", parsedTemplate)
 
 	kubernetes := kubetest.StartKubetestEnv(t, env.Log, kubetest.WithEnabled(true))
 	defer kubernetes.Stop()
 
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
-	assert.NilError(t, err)
-	scheduler.Start()
-	defer func() {
-		scheduler.Shutdown()
-		quitChan <- struct{}{}
-	}()
-
 	reconciler := project.Reconciler{
 		KubeConfig:            kubernetes.ControlPlane.Config,
 		ComponentBuilder:      component.NewBuilder(),
-		RepositoryManager:     kubernetes.RepositoryManager,
 		ProjectManager:        projectManager,
 		Log:                   env.Log,
 		FieldManager:          "controller",
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		UpdateScheduler:       scheduler,
+		InventoryRootDir:      filepath.Join(env.TestRoot, "inventory"),
 	}
 
 	suspend := false
@@ -1844,11 +1430,11 @@ func TestReconciler_Reconcile_IgnoreConflicts(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
-			UID:       types.UID(env.TestRoot),
+			UID:       types.UID("12345"),
 		},
 		Spec: gitops.GitOpsProjectSpec{
-			URL:                 env.TestProject,
-			Branch:              "main",
+			URL:                 repository.Name,
+			Ref:                 repository.Ref,
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -1940,40 +1526,27 @@ func TestReconciler_Reconcile_Stage(t *testing.T) {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	registryPath := t.TempDir()
-
-	cueModuleRegistry, err := ocitest.StartCUERegistry(registryPath)
-	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
-
 	env := projecttest.InitTestEnvironment(
 		t,
-		[]byte(useStageTemplate()),
 	)
+	defer env.Close()
+
+	repository := env.PushProject(t, "test", "latest", []byte(useStageTemplate()))
 
 	kubernetes := kubetest.StartKubetestEnv(t, env.Log, kubetest.WithEnabled(true))
 	defer kubernetes.Stop()
 	projectManager := project.NewManager(component.NewBuilder(), -1)
 
-	scheduler, quitChan, err := version.NewUpdateScheduler(env.Log)
-	assert.NilError(t, err)
-	scheduler.Start()
-	defer func() {
-		scheduler.Shutdown()
-		quitChan <- struct{}{}
-	}()
-
 	reconciler := project.Reconciler{
 		KubeConfig:            kubernetes.ControlPlane.Config,
 		ComponentBuilder:      component.NewBuilder(),
-		RepositoryManager:     kubernetes.RepositoryManager,
 		ProjectManager:        projectManager,
 		Log:                   env.Log,
 		FieldManager:          "controller",
 		WorkerPoolSize:        -1,
 		InsecureSkipTLSverify: true,
 		CacheDir:              env.TestRoot,
-		UpdateScheduler:       scheduler,
+		InventoryRootDir:      filepath.Join(env.TestRoot, "inventory"),
 	}
 
 	suspend := false
@@ -1985,12 +1558,12 @@ func TestReconciler_Reconcile_Stage(t *testing.T) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test",
 			Namespace: "tenant",
-			UID:       types.UID(env.TestRoot),
+			UID:       types.UID("12345"),
 		},
 		Spec: gitops.GitOpsProjectSpec{
-			URL:                 env.TestProject,
+			URL:                 repository.Name,
+			Ref:                 repository.Ref,
 			Dir:                 "int",
-			Branch:              "main",
 			PullIntervalSeconds: 5,
 			Suspend:             &suspend,
 		},
@@ -1998,7 +1571,7 @@ func TestReconciler_Reconcile_Stage(t *testing.T) {
 
 	result, err := reconciler.Reconcile(ctx, gProject)
 	assert.NilError(t, err)
-	assert.NilError(t, result.PullError)
+	assert.NilError(t, result.DownloadError)
 	assert.NilError(t, result.ComponentError)
 	assert.Equal(t, result.Suspended, false)
 
@@ -2014,8 +1587,7 @@ func TestReconciler_Reconcile_Stage(t *testing.T) {
 	assert.Equal(t, ns.Name, nsName)
 
 	inventoryInstance := &inventory.Instance{
-		// /inventory is mounted as volume.
-		Path: filepath.Join("/inventory", string(gProject.GetUID())),
+		Path: filepath.Join(reconciler.InventoryRootDir, string(gProject.GetUID())),
 	}
 	inventoryStorage, err := inventoryInstance.Load()
 	assert.NilError(t, err)

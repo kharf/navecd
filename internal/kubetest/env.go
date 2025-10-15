@@ -27,7 +27,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kharf/navecd/pkg/kube"
-	"github.com/kharf/navecd/pkg/vcs"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kubectl/pkg/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,7 +38,6 @@ type Environment struct {
 	ControlPlane          *envtest.Environment
 	TestKubeClient        client.Client
 	DynamicTestKubeClient *kube.ExtendedDynamicClient
-	RepositoryManager     vcs.RepositoryManager
 	Ctx                   context.Context
 	clean                 func() error
 }
@@ -56,19 +54,8 @@ func (opt enabled) apply(opts *options) {
 	opts.enabled = bool(opt)
 }
 
-type vcsAuthSecret struct {
-	projectName string
-}
-
-var _ Option = (*vcsAuthSecret)(nil)
-
-func (opt *vcsAuthSecret) apply(opts *options) {
-	opts.vcsAuthSecret = opt
-}
-
 type options struct {
-	enabled       bool
-	vcsAuthSecret *vcsAuthSecret
+	enabled bool
 }
 
 type Option interface {
@@ -77,12 +64,6 @@ type Option interface {
 
 func WithEnabled(isEnabled bool) enabled {
 	return enabled(isEnabled)
-}
-
-func WithVCSAuthSecretFor(projectName string) *vcsAuthSecret {
-	return &vcsAuthSecret{
-		projectName: projectName,
-	}
 }
 
 func StartKubetestEnv(t testing.TB, log logr.Logger, opts ...Option) *Environment {
@@ -136,39 +117,10 @@ func StartKubetestEnv(t testing.TB, log logr.Logger, opts ...Option) *Environmen
 	err = testClient.Create(ctx, &declNs)
 	assert.NilError(t, err)
 
-	if options.vcsAuthSecret != nil {
-		sec := corev1.Secret{
-			TypeMeta: v1.TypeMeta{
-				Kind:       "Secret",
-				APIVersion: "v1",
-			},
-			ObjectMeta: v1.ObjectMeta{
-				Name:      vcs.SecretName(options.vcsAuthSecret.projectName),
-				Namespace: nsStr,
-			},
-			Data: map[string][]byte{
-				vcs.K8sSecretDataAuthType: []byte(vcs.K8sSecretDataAuthTypeSSH),
-				vcs.SSHKey: []byte(`-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
-c2gtZWQyNTUxOQAAACDrGFnmApwnObDTPK8nepGtlPKhhrA1u6Ox2hD5LAq5+gAA
-AIh1qzZ4das2eAAAAAtzc2gtZWQyNTUxOQAAACDrGFnmApwnObDTPK8nepGtlPKh
-hrA1u6Ox2hD5LAq5+gAAAEDiqr5GEHcp1oHqJCNhc+LBYF9LDmuJ9oL0LUw5pYZy
-9OsYWeYCnCc5sNM8ryd6ka2U8qGGsDW7o7HaEPksCrn6AAAAAAECAwQF
------END OPENSSH PRIVATE KEY-----`),
-				vcs.SSHPubKey: []byte("ssh-ed25519 AAAA"),
-			},
-		}
-		err = testClient.Create(ctx, &sec)
-		assert.NilError(t, err)
-	}
-
-	repositoryManger := vcs.NewRepositoryManager("test", client.DynamicClient(), log)
-
 	return &Environment{
 		ControlPlane:          testEnv,
 		TestKubeClient:        testClient,
 		DynamicTestKubeClient: client,
-		RepositoryManager:     repositoryManger,
 		Ctx:                   ctx,
 		clean: func() error {
 			cancel()

@@ -101,12 +101,10 @@ func (n *Navecd) Test(
 	// +optional
 	test string,
 ) (string, error) {
-	container, err := n.kubernetesTestEnv(ctx, n.buildEnv(source))
+	prepareTest, err := n.kubernetesTestEnv(ctx, n.buildEnv(source))
 	if err != nil {
 		return "", err
 	}
-
-	prepareTest := container.WithEnvVariable("CACHEBUSTER", time.Now().String())
 
 	if pkg == "" && test == "" {
 		return prepareTest.

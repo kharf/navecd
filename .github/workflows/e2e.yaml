@@ -12,20 +12,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  Prepare:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout E2E Repository
-        uses: actions/checkout@v5
-        with:
-          token: ${{ secrets.PAT }}
-          repository: kharf/navecd-e2e
-          path: ./e2e
-      - name: Clean
-        working-directory: ./e2e
-        env:
-          GH_TOKEN: ${{ secrets.PAT }}
-        run: gh repo deploy-key list --json id -q '.[].id' | xargs -I {} gh repo deploy-key delete {}
   E2E:
     runs-on: ubuntu-latest
     steps:
@@ -80,7 +66,7 @@ jobs:
         run: navecd init github.com/kharf/navecd-e2e --image=${{ steps.kind.outputs.LOCAL_REGISTRY }}/navecd
       - name: Install Navecd
         working-directory: ./e2e
-        run: navecd install -u git@github.com:kharf/navecd-e2e.git -t ${{ secrets.E2E_TOKEN}} -b ${{ matrix.cluster.name }} --name ${{ matrix.cluster.name }}
+        run: navecd install -u ${{ steps.kind.outputs.LOCAL_REGISTRY }}/project -r ${{ matrix.cluster.name }}
       - name: Test Installation
         run: go test -v ./tests/e2e/ -run TestInstallation -count=1
       - name: Navecd Logs
@@ -89,7 +75,6 @@ jobs:
       - name: Navecd describe
         if: always()
         run: kubectl describe -n navecd-system deploy/project-controller-primary
-    needs: Prepare
     strategy:
       fail-fast: false
       matrix:

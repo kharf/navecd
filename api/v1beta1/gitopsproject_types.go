@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kharf/navecd/pkg/cloud"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,14 +31,17 @@ type GitOpsProjectSpec struct {
 	URL string `json:"url"`
 
 	//+kubebuilder:validation:MinLength=1
-	// The branch of the gitops repository holding navecd configuration.
-	Branch string `json:"branch"`
+	// The reference to the gitops repository containing navecd configuration.
+	Ref string `json:"ref"`
 
 	//+kubebuilder:validation:MinLength=1
 	//+kubebuilder:default="."
-	// The directory of the gitops repository holding navecd configuration.
+	// The directory of the gitops repository containing navecd configuration.
 	// Can be "." for root.
 	Dir string `json:"dir"`
+
+	// Authentication information for private oci repositories.
+	Auth *cloud.Auth `json:"auth,omitempty"`
 
 	//+kubebuilder:validation:Minimum=5
 	// This defines how often navecd will try to fetch changes from the gitops repository.
@@ -50,7 +54,7 @@ type GitOpsProjectSpec struct {
 }
 
 type GitOpsProjectRevision struct {
-	CommitHash    string      `json:"commitHash,omitempty"`
+	Digest        string      `json:"digest,omitempty"`
 	ReconcileTime metav1.Time `json:"reconcileTime,omitempty"`
 }
 

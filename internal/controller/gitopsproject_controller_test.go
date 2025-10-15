@@ -15,17 +15,21 @@
 package controller
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-logr/logr"
 	gitops "github.com/kharf/navecd/api/v1beta1"
-	"github.com/kharf/navecd/internal/gittest"
 	"github.com/kharf/navecd/internal/kubetest"
 	"github.com/kharf/navecd/internal/projecttest"
 	"github.com/kharf/navecd/internal/testtemplates"
+	"github.com/kharf/navecd/internal/txtar"
+	"github.com/kharf/navecd/pkg/oci"
 	"github.com/kharf/navecd/pkg/project"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -110,13 +114,22 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 	When("Creating a GitOpsProject", func() {
 
 		var (
-			env        projecttest.Environment
-			kubernetes *kubetest.Environment
-			k8sClient  client.Client
+			env         projecttest.Environment
+			projectPath string
+			repository  project.OCIRepositoryRef
+			kubernetes  *kubetest.Environment
+			k8sClient   client.Client
 		)
 
 		BeforeEach(func() {
-			env = projecttest.InitTestEnvironment(test, []byte(useProjectOneTemplate()))
+			env = projecttest.InitTestEnvironment(test)
+			projectPath = filepath.Join(env.TestRoot, "test")
+			_, err := txtar.Create(projectPath, bytes.NewReader([]byte(useProjectOneTemplate())))
+			Expect(err).NotTo(HaveOccurred())
+			repository = project.OCIRepositoryRef{
+				Name: fmt.Sprintf("%s/%s", env.OCIRegistry.Addr(), "test"),
+				Ref:  "latest",
+			}
 			kubernetes = kubetest.StartKubetestEnv(test, env.Log, kubetest.WithEnabled(true))
 			k8sClient = kubernetes.TestKubeClient
 		})
@@ -127,6 +140,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 			metrics.Registry = prometheus.NewRegistry()
 			err = os.RemoveAll("/podinfo")
 			Expect(err).NotTo(HaveOccurred())
+			env.Close()
 		})
 
 		When("The pull interval is less than 5 seconds", func() {
@@ -139,36 +153,26 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 					"primary",
 					"image",
 					false,
-					env.LocalTestProject,
-					"1.0.0",
+					projectPath,
+					"0.0.99",
 				)
 				Expect(err).NotTo(HaveOccurred())
 
-				gitServer, httpClient := gittest.MockGitProvider(
-					test,
-					"owner/repo",
-					fmt.Sprintf("navecd-%s", gitOpsProjectName),
-					nil,
-					nil,
-				)
-				defer gitServer.Close()
-
 				installAction := project.NewInstallAction(
 					kubernetes.DynamicTestKubeClient.DynamicClient(),
-					httpClient,
-					env.LocalTestProject,
+					http.DefaultClient,
+					projectPath,
 				)
 
-				err = installAction.Install(
+				_, err = installAction.Install(
 					context.Background(),
 					project.InstallOptions{
-						Url:      env.TestProject,
-						Branch:   "main",
+						Url:      repository.Name,
+						Ref:      repository.Ref,
 						Dir:      ".",
 						Name:     gitOpsProjectName,
 						Shard:    "primary",
 						Interval: 0,
-						Token:    "abcd",
 					},
 				)
 				Expect(err).To(HaveOccurred())
@@ -189,46 +193,46 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 					setupPodInfo(gitOpsProjectName)
 
 					ctx := context.Background()
+
 					err := project.Init(
 						"github.com/kharf/navecd/controller",
 						"primary",
 						"image",
 						false,
-						env.LocalTestProject,
+						projectPath,
 						"0.0.99",
 					)
 					Expect(err).NotTo(HaveOccurred())
 
-					gitServer, httpClient := gittest.MockGitProvider(
-						test,
-						"owner/repo",
-						fmt.Sprintf("navecd-%s", gitOpsProjectName),
-						nil,
-						nil,
-					)
-					defer gitServer.Close()
-
 					installAction := project.NewInstallAction(
 						kubernetes.DynamicTestKubeClient.DynamicClient(),
-						httpClient,
-						env.LocalTestProject,
+						http.DefaultClient,
+						projectPath,
 					)
 
-					err = installAction.Install(
+					digest, err := installAction.Install(
 						ctx,
 						project.InstallOptions{
-							Url:      env.TestProject,
-							Branch:   "main",
+							Url:      repository.Name,
+							Ref:      repository.Ref,
 							Dir:      ".",
 							Name:     gitOpsProjectName,
 							Shard:    "primary",
 							Interval: intervalInSeconds,
-							Token:    "abcd",
 						},
 					)
 					Expect(err).NotTo(HaveOccurred())
 
-					mgr, scheduler, err := Setup(
+					ociClient, err := oci.NewRepositoryClient(repository.Name)
+					Expect(err).NotTo(HaveOccurred())
+					projectClient := oci.NewProjectClient(ociClient)
+					tmpDir, err := os.MkdirTemp("", "")
+					Expect(err).NotTo(HaveOccurred())
+					gotDigest, err := projectClient.LoadImage(ctx, repository.Ref, tmpDir)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(gotDigest).To(Equal(digest))
+
+					mgr, err := Setup(
 						kubernetes.ControlPlane.Config,
 						InsecureSkipTLSverify(true),
 						MetricsAddr("0"),
@@ -237,7 +241,6 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 
 					go func() {
 						defer GinkgoRecover()
-						scheduler.Start()
 						_ = mgr.Start(ctx)
 					}()
 
@@ -255,7 +258,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 						g.Expect(project.Spec.PullIntervalSeconds).To(Equal(intervalInSeconds))
 						suspend := false
 						g.Expect(project.Spec.Suspend).To(Equal(&suspend))
-						g.Expect(project.Spec.URL).To(Equal(env.TestProject))
+						g.Expect(project.Spec.URL).To(Equal(repository.Name))
 					}, duration, assertionInterval).Should(Succeed())
 
 					Eventually(func() (string, error) {
@@ -277,7 +280,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 							&updatedGitOpsProject,
 						)
 						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(updatedGitOpsProject.Status.Revision.CommitHash).ToNot(BeEmpty())
+						g.Expect(updatedGitOpsProject.Status.Revision.Digest).ToNot(BeEmpty())
 						g.Expect(updatedGitOpsProject.Status.Revision.ReconcileTime.IsZero()).
 							To(BeFalse())
 						g.Expect(len(updatedGitOpsProject.Status.Conditions)).To(Equal(2))
@@ -291,6 +294,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 
 		var (
 			envs          map[string]projecttest.Environment
+			repositories  map[string]project.OCIRepositoryRef
 			kubernetes    *kubetest.Environment
 			k8sClient     client.Client
 			installAction project.InstallAction
@@ -299,15 +303,6 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 		BeforeAll(func() {
 			kubernetes = kubetest.StartKubetestEnv(test, logr.Discard(), kubetest.WithEnabled(true))
 			k8sClient = kubernetes.TestKubeClient
-
-			gitServer, httpClient := gittest.MockGitProvider(
-				test,
-				"owner/repo",
-				fmt.Sprintf("navecd-%s", "test"),
-				nil,
-				nil,
-			)
-			defer gitServer.Close()
 
 			ctx := context.Background()
 
@@ -318,44 +313,51 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 			setupPodInfo("multitenancy")
 
 			envs = make(map[string]projecttest.Environment, 2)
+			repositories = make(map[string]project.OCIRepositoryRef, 2)
 			for i, projectTemplate := range projectTemplates {
-				env := projecttest.InitTestEnvironment(test, []byte(projectTemplate))
+				projectName := fmt.Sprintf("%s%v", "project", i)
+				env := projecttest.InitTestEnvironment(test)
+				projectPath := filepath.Join(env.TestRoot, "init")
+				_, err := txtar.Create(projectPath, bytes.NewReader([]byte(projectTemplate)))
+				Expect(err).NotTo(HaveOccurred())
+				repository := project.OCIRepositoryRef{
+					Name: fmt.Sprintf("%s/%s", env.OCIRegistry.Addr(), "test"),
+					Ref:  "latest",
+				}
 				installAction = project.NewInstallAction(
 					kubernetes.DynamicTestKubeClient.DynamicClient(),
-					httpClient,
-					env.LocalTestProject,
+					http.DefaultClient,
+					projectPath,
 				)
 
-				err := project.Init(
+				err = project.Init(
 					"github.com/kharf/navecd/controller",
 					"primary",
 					"image",
 					false,
-					env.LocalTestProject,
+					projectPath,
 					"0.0.99",
 				)
 				Expect(err).NotTo(HaveOccurred())
 
-				projectName := fmt.Sprintf("%s%v", "project", i)
-
-				err = installAction.Install(
+				_, err = installAction.Install(
 					ctx,
 					project.InstallOptions{
-						Url:      env.TestProject,
-						Branch:   "main",
+						Url:      repository.Name,
+						Ref:      repository.Ref,
 						Dir:      ".",
 						Name:     projectName,
 						Shard:    "primary",
 						Interval: intervalInSeconds,
-						Token:    "abcd",
 					},
 				)
 				Expect(err).NotTo(HaveOccurred())
 
 				envs[projectName] = env
+				repositories[projectName] = repository
 			}
 
-			mgr, scheduler, err := Setup(
+			mgr, err := Setup(
 				kubernetes.ControlPlane.Config,
 				InsecureSkipTLSverify(true),
 				MetricsAddr("0"),
@@ -364,7 +366,6 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 
 			go func() {
 				defer GinkgoRecover()
-				scheduler.Start()
 				_ = mgr.Start(ctx)
 			}()
 		})
@@ -374,6 +375,9 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			err = os.RemoveAll("/podinfo")
 			Expect(err).NotTo(HaveOccurred())
+			for _, env := range envs {
+				env.Close()
+			}
 		})
 
 		It(
@@ -395,7 +399,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 					g.Expect(project.Spec.PullIntervalSeconds).To(Equal(intervalInSeconds))
 					suspend := false
 					g.Expect(project.Spec.Suspend).To(Equal(&suspend))
-					g.Expect(project.Spec.URL).To(Equal(envs["project0"].TestProject))
+					g.Expect(project.Spec.URL).To(Equal(repositories["project0"].Name))
 				}, duration, assertionInterval).Should(Succeed())
 
 				Eventually(func(g Gomega) {
@@ -412,7 +416,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 					g.Expect(project.Spec.PullIntervalSeconds).To(Equal(intervalInSeconds))
 					suspend := false
 					g.Expect(project.Spec.Suspend).To(Equal(&suspend))
-					g.Expect(project.Spec.URL).To(Equal(envs["project1"].TestProject))
+					g.Expect(project.Spec.URL).To(Equal(repositories["project1"].Name))
 				}, duration, assertionInterval).Should(Succeed())
 
 				Eventually(func(g Gomega) {
@@ -439,7 +443,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 						&updatedGitOpsProject,
 					)
 					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(updatedGitOpsProject.Status.Revision.CommitHash).ToNot(BeEmpty())
+					g.Expect(updatedGitOpsProject.Status.Revision.Digest).ToNot(BeEmpty())
 					g.Expect(updatedGitOpsProject.Status.Revision.ReconcileTime.IsZero()).
 						To(BeFalse())
 					g.Expect(len(updatedGitOpsProject.Status.Conditions)).To(Equal(2))

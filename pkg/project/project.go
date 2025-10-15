@@ -15,6 +15,7 @@
 package project
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -22,10 +23,31 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kharf/navecd/pkg/cloud"
 	"github.com/kharf/navecd/pkg/component"
-	"github.com/kharf/navecd/pkg/version"
 	"golang.org/x/sync/errgroup"
 )
+
+type options struct {
+	loader RemoteLoader
+
+	// optional auth used when loader is not nil
+	auth *cloud.Auth
+}
+
+type Option func(opts *options)
+
+func WithRemoteLoader(loader RemoteLoader) Option {
+	return func(opts *options) {
+		opts.loader = loader
+	}
+}
+
+func WithAuth(auth *cloud.Auth) Option {
+	return func(opts *options) {
+		opts.auth = auth
+	}
+}
 
 var (
 	ErrLoadProject = errors.New("Could not load project")
@@ -46,85 +68,116 @@ func NewManager(componentBuilder component.Builder, workerPoolSize int) Manager 
 
 // Instance represents the loaded project.
 type Instance struct {
-	Dag                *component.DependencyGraph
-	UpdateInstructions []version.UpdateInstruction
+	Digest    Digest
+	Path      string
+	LoadError error
+	Dag       *component.DependencyGraph
 }
 
 // Load uses a given path to a project and returns the components as a directed acyclic dependency graph.
 func (manager *Manager) Load(
+	ctx context.Context,
 	projectPath string,
 	dir string,
+	opts ...Option,
 ) (*Instance, error) {
+	options := &options{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	projectPath = strings.TrimSuffix(projectPath, "/")
-	if _, err := os.Stat(projectPath); errors.Is(err, fs.ErrNotExist) {
-		return nil, err
+
+	var configPath string
+	if dir != "." {
+		configPath = filepath.Join(projectPath, dir)
+	} else {
+		configPath = projectPath
+	}
+
+	var digest Digest
+	var downloadErr error
+	if options.loader != nil {
+		result, err := options.loader.Load(ctx, projectPath, options.auth)
+		if err != nil {
+			var loadErr *RecoverableLoadError
+			if !errors.As(err, &loadErr) {
+				return nil, fmt.Errorf("%w: %w", ErrLoadProject, err)
+			}
+
+			if _, statErr := os.Stat(configPath); errors.Is(statErr, fs.ErrNotExist) {
+				return nil, fmt.Errorf("%w: %w", ErrLoadProject, err)
+			}
+
+			projectPath = err.(*RecoverableLoadError).BackupPath
+			downloadErr = err
+		}
+
+		digest = result
+	}
+
+	if _, err := os.Stat(configPath); errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("%w: %w", ErrLoadProject, err)
 	}
 
 	producerEg := &errgroup.Group{}
 	producerEg.SetLimit(manager.workerPoolSize)
 
-	resultChan := make(chan *Instance, 1)
+	resultChan := make(chan *component.DependencyGraph, 1)
 	packageChan := make(chan string, 250)
 
 	consumerEg := &errgroup.Group{}
 	consumerEg.Go(func() error {
 		dag := component.NewDependencyGraph()
-		var updateInstructions []version.UpdateInstruction
 		for packagePath := range packageChan {
 			buildResult, err := manager.componentBuilder.Build(
 				component.WithProjectRoot(projectPath),
 				component.WithPackagePath(packagePath),
 			)
 			if err != nil {
-				return err
+				return fmt.Errorf("%w: %w", ErrLoadProject, err)
 			}
 
 			if err := dag.Insert(buildResult.Instances...); err != nil {
 				return fmt.Errorf("%w: %w", ErrLoadProject, err)
 			}
-			updateInstructions = append(updateInstructions, buildResult.UpdateInstructions...)
 		}
 
-		resultChan <- &Instance{
-			Dag:                &dag,
-			UpdateInstructions: updateInstructions,
-		}
+		resultChan <- &dag
 		return nil
 	})
 
-	if err := walkDir(projectPath, dir, producerEg, packageChan); err != nil {
-		return nil, err
+	if err := walkDir(projectPath, configPath, producerEg, packageChan); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrLoadProject, err)
 	}
 
 	if err := producerEg.Wait(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrLoadProject, err)
 	}
 	close(packageChan)
 
 	if err := consumerEg.Wait(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrLoadProject, err)
 	}
 
 	dag := <-resultChan
 
-	return dag, nil
+	return &Instance{
+		Digest:    digest,
+		Path:      configPath,
+		LoadError: downloadErr,
+		Dag:       dag,
+	}, nil
 }
 
 func walkDir(
 	projectPath string,
-	dir string,
+	configPath string,
 	packageGroup *errgroup.Group,
 	packageChan chan<- string,
 ) error {
-	var walkPath string
-	if dir == "." {
-		walkPath = projectPath
-	} else {
-		walkPath = filepath.Join(projectPath, dir)
-	}
-
 	err := filepath.WalkDir(
-		walkPath,
+		configPath,
 		func(path string, dirEntry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -132,8 +185,8 @@ func walkDir(
 
 			if dirEntry.IsDir() {
 				// TODO implement a dynamic way for ignoring directories
-				if path == filepath.Join(walkPath, "cue.mod") ||
-					path == filepath.Join(walkPath, ".git") {
+				if path == filepath.Join(configPath, "cue.mod") ||
+					path == filepath.Join(configPath, ".git") {
 					return filepath.SkipDir
 				}
 

@@ -30,7 +30,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/kharf/navecd/internal/gittest"
 	"github.com/kharf/navecd/internal/ocitest"
 	"github.com/kharf/navecd/internal/txtar"
 	"github.com/kharf/navecd/pkg/cloud"
@@ -1301,7 +1300,6 @@ func ConfigureHelm(cfg *rest.Config) (*action.Configuration, error) {
 }
 
 type projectOption struct {
-	repo        *gittest.LocalGitRepository
 	testProject string
 	testRoot    string
 }
@@ -1336,6 +1334,15 @@ func (opt private) Apply(opts *options) {
 	opts.private = bool(opt)
 }
 
+type registry ocitest.Registry
+
+var _ Option = (*registry)(nil)
+
+func (opt registry) Apply(opts *options) {
+	reg := ocitest.Registry(opt)
+	opts.registry = &reg
+}
+
 type provider cloud.ProviderID
 
 var _ Option = (*provider)(nil)
@@ -1359,6 +1366,7 @@ type options struct {
 	project         projectOption
 	cloudProviderID cloud.ProviderID
 	digest          string
+	registry        *ocitest.Registry
 }
 
 type Option interface {
@@ -1377,13 +1385,15 @@ func WithPrivate(enabled bool) private {
 	return private(enabled)
 }
 
+func WithRegistry(reg ocitest.Registry) registry {
+	return registry(reg)
+}
+
 func WithProject(
-	repo *gittest.LocalGitRepository,
 	testProject string,
 	testRoot string,
 ) projectOption {
 	return projectOption{
-		repo:        repo,
 		testProject: testProject,
 		testRoot:    testRoot,
 	}
@@ -1487,12 +1497,15 @@ func NewHelmEnvironment(t testing.TB, opts ...Option) (*Environment, error) {
 	var v1Digest string
 	if options.oci {
 		var err error
-		ociServer, err := ocitest.NewTLSRegistry(
-			options.private,
-			options.cloudProviderID,
-		)
-		if err != nil {
-			return nil, err
+		ociServer := options.registry
+		if options.registry == nil {
+			ociServer, err = ocitest.NewTLSRegistry(
+				options.private,
+				options.cloudProviderID,
+			)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		helmOpts := []helmRegistry.ClientOption{
@@ -1797,7 +1810,6 @@ type Template struct {
 
 func ReplaceTemplate(
 	tmpl Template,
-	gitRepository *gittest.LocalGitRepository,
 ) error {
 	releasesFilePath := filepath.Join(
 		tmpl.TestProjectPath,
@@ -1827,14 +1839,6 @@ func ReplaceTemplate(
 		Name:    tmpl.Name,
 		RepoURL: tmpl.RepoURL,
 	})
-	if err != nil {
-		return err
-	}
-
-	_, err = gitRepository.CommitFile(
-		tmpl.RelativeReleaseFilePath,
-		"overwrite template",
-	)
 	if err != nil {
 		return err
 	}

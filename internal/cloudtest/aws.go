@@ -38,6 +38,11 @@ const (
 type AWSEnvironment struct {
 	PodIdentityAgent *httptest.Server
 	ECRServer        *httptest.Server
+	addr             string
+}
+
+func (env *AWSEnvironment) RegistryAddr() string {
+	return env.addr
 }
 
 func (env *AWSEnvironment) Close() {
@@ -136,16 +141,16 @@ func NewAWSEnvironment(
 	}
 	ecrServer.StartTLS()
 
-	ecrServer.URL = strings.Replace(
-		ecrServer.URL,
-		"https://127.0.0.1",
-		AWSRegistryHost,
-		1,
-	)
 	fmt.Println("ECR Server listening on", ecrServer.URL)
 
 	return &AWSEnvironment{
 		PodIdentityAgent: agentServer,
 		ECRServer:        ecrServer,
+		addr: strings.Replace(
+			ecrServer.URL,
+			"https://127.0.0.1",
+			AWSRegistryHost,
+			1,
+		),
 	}, nil
 }

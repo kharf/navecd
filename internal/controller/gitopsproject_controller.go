@@ -31,7 +31,6 @@ import (
 	ctrlZap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	"github.com/go-co-op/gocron/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -47,10 +46,7 @@ import (
 	"github.com/go-logr/logr"
 	gitops "github.com/kharf/navecd/api/v1beta1"
 	"github.com/kharf/navecd/pkg/component"
-	"github.com/kharf/navecd/pkg/kube"
 	"github.com/kharf/navecd/pkg/project"
-	"github.com/kharf/navecd/pkg/vcs"
-	"github.com/kharf/navecd/pkg/version"
 	"github.com/prometheus/client_golang/prometheus"
 	helmKube "helm.sh/helm/v3/pkg/kube"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -124,7 +120,7 @@ func (controller *GitOpsProjectController) Reconcile(
 
 	reconciledTime := v1.Now()
 	gProject.Status.Revision = gitops.GitOpsProjectRevision{
-		CommitHash:    result.CommitHash,
+		Digest:        result.Digest,
 		ReconcileTime: reconciledTime,
 	}
 
@@ -245,7 +241,7 @@ func (opt LogLevel) apply(options *setupOptions) {
 	options.LogLevel = int(opt)
 }
 
-func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Scheduler, error) {
+func Setup(cfg *rest.Config, options ...option) (manager.Manager, error) {
 	opts := &setupOptions{
 		NamePodinfoPath:       "/podinfo/name",
 		NamespacePodinfoPath:  "/podinfo/namespace",
@@ -270,7 +266,7 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 	nameBytes, err := os.ReadFile(opts.NamePodinfoPath)
 	if err != nil {
 		log.Error(err, "Unable to read controller name")
-		return nil, nil, err
+		return nil, err
 	}
 
 	controllerName := strings.TrimSpace(string(nameBytes))
@@ -278,7 +274,7 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 	namespaceBytes, err := os.ReadFile(opts.NamespacePodinfoPath)
 	if err != nil {
 		log.Error(err, "Unable to read namespace")
-		return nil, nil, err
+		return nil, err
 	}
 
 	namespace := strings.TrimSpace(string(namespaceBytes))
@@ -286,7 +282,7 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 	shardBytes, err := os.ReadFile(opts.ShardPodinfoPath)
 	if err != nil {
 		log.Error(err, "Unable to read shard")
-		return nil, nil, err
+		return nil, err
 	}
 
 	shard := strings.TrimSpace(string(shardBytes))
@@ -294,7 +290,7 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 	labelReq, err := labels.NewRequirement("navecd/shard", selection.Equals, []string{shard})
 	if err != nil {
 		log.Error(err, "Unable to set label requirements")
-		return nil, nil, err
+		return nil, err
 	}
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
@@ -320,7 +316,7 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 	})
 	if err != nil {
 		log.Error(err, "Unable to create manager")
-		return nil, nil, err
+		return nil, err
 	}
 
 	componentBuilder := component.NewBuilder()
@@ -332,12 +328,6 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 
 	helmKube.ManagedFieldsManager = controllerName
 
-	kubeDynamicClient, err := kube.NewExtendedDynamicClient(cfg)
-	if err != nil {
-		log.Error(err, "Unable to setup Kubernetes client")
-		return nil, nil, err
-	}
-
 	reconciliationHisto := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "navecd",
 		Name:      "reconciliation_duration_seconds",
@@ -345,15 +335,7 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 	}, []string{"project", "url"})
 	if err := metrics.Registry.Register(reconciliationHisto); err != nil {
 		log.Error(err, "Unable to register Prometheus Collector")
-		return nil, nil, err
-	}
-
-	scheduler, quitChan, err := version.NewUpdateScheduler(
-		log,
-	)
-	if err != nil {
-		log.Error(err, "Unable to setup update scheduler")
-		return nil, nil, err
+		return nil, err
 	}
 
 	signalChan := make(chan os.Signal, 1)
@@ -361,7 +343,6 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 
 	go func() {
 		<-signalChan
-		quitChan <- struct{}{}
 	}()
 
 	if err := (&GitOpsProjectController{
@@ -372,30 +353,30 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, gocron.Schedul
 			Log:                   log,
 			KubeConfig:            cfg,
 			ComponentBuilder:      componentBuilder,
-			RepositoryManager:     vcs.NewRepositoryManager(namespace, kubeDynamicClient.DynamicClient(), log),
 			ProjectManager:        projectManager,
 			FieldManager:          controllerName,
 			WorkerPoolSize:        workerSize,
 			InsecureSkipTLSverify: opts.InsecureSkipTLSverify,
 			PlainHTTP:             opts.PlainHTTP,
 			CacheDir:              os.TempDir(),
-			Namespace:             namespace,
-			UpdateScheduler:       scheduler,
+			// /inventory is mounted as volume.
+			InventoryRootDir: "/inventory",
+			Namespace:        namespace,
 		},
 	}).SetupWithManager(mgr, controllerName); err != nil {
 		log.Error(err, "Unable to create controller")
-		return nil, nil, err
+		return nil, err
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		log.Error(err, "Unable to set up health check")
-		return nil, nil, err
+		return nil, err
 	}
 
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		log.Error(err, "Unable to set up ready check")
-		return nil, nil, err
+		return nil, err
 	}
 
-	return mgr, scheduler, nil
+	return mgr, nil
 }

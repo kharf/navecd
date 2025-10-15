@@ -113,24 +113,7 @@ workflows: [
 			"cancel-in-progress": true
 		}
 
-		jobs: Prepare: steps: [
-			#checkoutCode & {
-				name: "Checkout E2E Repository"
-				with: {
-					repository: "kharf/navecd-e2e"
-					path:       "./e2e"
-				}
-			},
-			{
-				name:                "Clean"
-				"working-directory": "./e2e"
-				env: GH_TOKEN: "${{ secrets.PAT }}"
-				run: "gh repo deploy-key list --json id -q '.[].id' | xargs -I {} gh repo deploy-key delete {}"
-			},
-		]
-
 		jobs: "E2E": {
-			needs: jobs.Prepare._name
 			strategy: {
 				"fail-fast": false
 				matrix: cluster: [
@@ -213,7 +196,7 @@ workflows: [
 				{
 					name:                "Install Navecd"
 					"working-directory": "./e2e"
-					run:                 "navecd install -u git@github.com:kharf/navecd-e2e.git -t ${{ secrets.E2E_TOKEN}} -b ${{ matrix.cluster.name }} --name ${{ matrix.cluster.name }}"
+					run:                 "navecd install -u ${{ steps.kind.outputs.LOCAL_REGISTRY }}/project -r ${{ matrix.cluster.name }}"
 				},
 				{
 					name: "Test Installation"

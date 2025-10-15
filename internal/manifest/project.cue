@@ -2,6 +2,9 @@ package navecd
 
 import (
 	"github.com/kharf/navecd/schema/component"
+	{{if or (eq .Provider "AWS") (eq .Provider "Azure") (eq .Provider "GCP")}}
+	"github.com/kharf/navecd/schema/workloadidentity"
+	{{end}}
 )
 
 {{.Name}}: component.#Manifest & {
@@ -18,11 +21,17 @@ import (
 			labels: _{{.Shard}}Labels
 		}
 		spec: {
-			branch:              "{{.Branch}}"
+			url:                 "{{.Url}}"
+			ref:                 "{{.Ref}}"
 			dir:                 "{{.Dir}}"
+			{{if or (eq .Provider "AWS") (eq .Provider "Azure") (eq .Provider "GCP")}}
+			auth: workloadidentity.#{{.Provider}}
+			{{end}}
+			{{- if .SecretRef}}
+			auth: secretRef: name: "{{.SecretRef}}"
+			{{end}}
 			pullIntervalSeconds: {{.PullIntervalSeconds}}
 			suspend:             false
-			url:                 "{{.Url}}"
 		}
 	}
 }

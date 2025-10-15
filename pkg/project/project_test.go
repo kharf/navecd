@@ -16,6 +16,7 @@ package project_test
 
 import (
 	"fmt"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -27,6 +28,7 @@ import (
 	"github.com/kharf/navecd/internal/testtemplates"
 	"github.com/kharf/navecd/internal/txtar"
 	"github.com/kharf/navecd/pkg/component"
+	"github.com/kharf/navecd/pkg/oci"
 	"github.com/kharf/navecd/pkg/project"
 	"gotest.tools/v3/assert"
 )
@@ -184,16 +186,24 @@ ns: component.#Manifest & {
 	assert.NilError(t, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(t.TempDir())
-	assert.NilError(t, err)
-	defer cueModuleRegistry.Close()
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			env := projecttest.InitTestEnvironment(t, []byte(tc.template))
+			env := projecttest.InitTestEnvironment(t)
+			defer env.Close()
+
+			repository := env.PushProject(t, "test", "latest", []byte(tc.template))
 
 			pm := project.NewManager(component.NewBuilder(), runtime.GOMAXPROCS(0))
-			instance, err := pm.Load(env.LocalTestProject, tc.reconcileDir)
+
+			instance, err := pm.Load(
+				t.Context(),
+				filepath.Join(env.TestRoot, "project"),
+				tc.reconcileDir,
+				project.WithRemoteLoader(&project.OCIRemoteLoader{
+					Repository: repository,
+					CacheDir:   t.TempDir(),
+				}),
+			)
 			assert.NilError(t, err)
 
 			dag := instance.Dag
@@ -243,6 +253,249 @@ ns: component.#Manifest & {
 			}
 		})
 	}
+}
+
+func TestManager_Load_UnrecoverableError(t *testing.T) {
+	var err error
+	dnsServer, err := dnstest.NewDNSServer()
+	assert.NilError(t, err)
+	defer dnsServer.Close()
+
+	env := projecttest.InitTestEnvironment(t)
+	defer env.Close()
+
+	pm := project.NewManager(component.NewBuilder(), runtime.GOMAXPROCS(0))
+
+	_, err = pm.Load(
+		t.Context(),
+		filepath.Join(env.TestRoot, "project"),
+		".",
+		project.WithRemoteLoader(&projecttest.FakeRemoteLoader{
+			Err: &oci.UnrecoverableError{},
+		}),
+	)
+	assert.ErrorIs(t, err, project.ErrLoadProject)
+}
+
+func TestManager_Load_LoadError(t *testing.T) {
+	var err error
+	dnsServer, err := dnstest.NewDNSServer()
+	assert.NilError(t, err)
+	defer dnsServer.Close()
+
+	pm := project.NewManager(component.NewBuilder(), runtime.GOMAXPROCS(0))
+
+	projectPath := filepath.Join(t.TempDir(), "project")
+	_, err = pm.Load(
+		t.Context(),
+		projectPath,
+		".",
+		project.WithRemoteLoader(&project.OCIRemoteLoader{
+			Repository: project.OCIRepositoryRef{
+				Name: "test",
+				Ref:  "test",
+			},
+			CacheDir: t.TempDir(),
+		}),
+	)
+	assert.ErrorIs(t, err, project.ErrLoadProject)
+}
+
+func TestManager_Load_LoadError_Recoverable(t *testing.T) {
+	var err error
+	dnsServer, err := dnstest.NewDNSServer()
+	assert.NilError(t, err)
+	defer dnsServer.Close()
+
+	env := projecttest.InitTestEnvironment(t)
+	defer env.Close()
+
+	template := fmt.Sprintf(`
+-- cue.mod/module.cue --
+module: "github.com/kharf/navecd/internal/controller/projectone@v0"
+language: version: "%s"
+deps: {
+	"github.com/kharf/navecd/schema@v0": {
+		v: "v0.0.99"
+	}
+}
+
+-- dev/infra/toola/namespace.cue --
+package toola
+
+import (
+	"github.com/kharf/navecd/schema/component"
+)
+
+#namespace: {
+	apiVersion: "v1"
+	kind:       "Namespace"
+	metadata: name: "toola"
+}
+
+ns: component.#Manifest & {
+	content: #namespace
+}
+`, testtemplates.ModuleVersion)
+	repository := env.PushProject(t, "test", "latest", []byte(template))
+
+	pm := project.NewManager(component.NewBuilder(), runtime.GOMAXPROCS(0))
+
+	projectPath := filepath.Join(env.TestRoot, "project")
+	withProjectLoader := project.WithRemoteLoader(&project.OCIRemoteLoader{
+		Repository: repository,
+		CacheDir:   t.TempDir(),
+	})
+	instance, err := pm.Load(
+		t.Context(),
+		projectPath,
+		".",
+		withProjectLoader,
+	)
+	assert.NilError(t, err)
+	assert.Equal(t, instance.Path, projectPath)
+
+	manifestID := fmt.Sprintf(
+		"%s_%s_%s_%s",
+		"toola",
+		"",
+		"",
+		"Namespace",
+	)
+	manifest := instance.Dag.Get(manifestID)
+	assert.Assert(t, manifest != nil)
+
+	env.OCIRegistry.Close()
+
+	instance, err = pm.Load(
+		t.Context(),
+		projectPath,
+		".",
+		withProjectLoader,
+	)
+	assert.NilError(t, err)
+	assert.Error(t, instance.LoadError, (&project.RecoverableLoadError{}).Error())
+
+	manifest = instance.Dag.Get(manifestID)
+	assert.Assert(t, manifest != nil)
+}
+
+func TestManager_Load_Update(t *testing.T) {
+	var err error
+	dnsServer, err := dnstest.NewDNSServer()
+	assert.NilError(t, err)
+	defer dnsServer.Close()
+
+	env := projecttest.InitTestEnvironment(t)
+	defer env.Close()
+
+	template := fmt.Sprintf(`
+-- cue.mod/module.cue --
+module: "github.com/kharf/navecd/internal/controller/projectone@v0"
+language: version: "%s"
+deps: {
+	"github.com/kharf/navecd/schema@v0": {
+		v: "v0.0.99"
+	}
+}
+
+-- dev/infra/toola/namespace.cue --
+package toola
+
+import (
+	"github.com/kharf/navecd/schema/component"
+)
+
+#namespace: {
+	apiVersion: "v1"
+	kind:       "Namespace"
+	metadata: name: "toola"
+}
+
+ns: component.#Manifest & {
+	content: #namespace
+}
+`, testtemplates.ModuleVersion)
+	repository := env.PushProject(t, "test", "latest", []byte(template))
+
+	pm := project.NewManager(component.NewBuilder(), runtime.GOMAXPROCS(0))
+
+	projectPath := filepath.Join(env.TestRoot, "project")
+	instance, err := pm.Load(
+		t.Context(),
+		projectPath,
+		".",
+		project.WithRemoteLoader(&project.OCIRemoteLoader{
+			Repository: repository,
+			CacheDir:   t.TempDir(),
+		}),
+	)
+	assert.NilError(t, err)
+	assert.Equal(t, instance.Path, projectPath)
+
+	manifestID := fmt.Sprintf(
+		"%s_%s_%s_%s",
+		"toola",
+		"",
+		"",
+		"Namespace",
+	)
+	manifest := instance.Dag.Get(manifestID)
+	assert.Assert(t, manifest != nil)
+
+	template = fmt.Sprintf(`
+-- cue.mod/module.cue --
+module: "github.com/kharf/navecd/internal/controller/projectone@v0"
+language: version: "%s"
+deps: {
+	"github.com/kharf/navecd/schema@v0": {
+		v: "v0.0.99"
+	}
+}
+
+-- dev/infra/toola/namespace.cue --
+package toola
+
+import (
+	"github.com/kharf/navecd/schema/component"
+)
+
+#namespace: {
+	apiVersion: "v1"
+	kind:       "Namespace"
+	metadata: name: "toolc"
+}
+
+ns: component.#Manifest & {
+	content: #namespace
+}
+`, testtemplates.ModuleVersion)
+	repository = env.PushProject(t, "test", "latest", []byte(template))
+
+	instance, err = pm.Load(
+		t.Context(),
+		projectPath,
+		".",
+		project.WithRemoteLoader(&project.OCIRemoteLoader{
+			Repository: repository,
+			CacheDir:   t.TempDir(),
+		}),
+	)
+	assert.NilError(t, err)
+
+	manifest = instance.Dag.Get(manifestID)
+	assert.Assert(t, manifest == nil)
+
+	manifestID = fmt.Sprintf(
+		"%s_%s_%s_%s",
+		"toolc",
+		"",
+		"",
+		"Namespace",
+	)
+
+	manifest = instance.Dag.Get(manifestID)
+	assert.Assert(t, manifest != nil)
 }
 
 var appTemplate = `
@@ -349,7 +602,7 @@ deps: {
 	assert.NilError(b, err)
 	defer dnsServer.Close()
 
-	cueModuleRegistry, err := ocitest.StartCUERegistry(b.TempDir())
+	cueModuleRegistry, err := ocitest.NewTLSRegistryWithSchema()
 	assert.NilError(b, err)
 	defer cueModuleRegistry.Close()
 
@@ -376,10 +629,11 @@ deps: {
 	}
 
 	pm := project.NewManager(component.NewBuilder(), -1)
+	ctx := b.Context()
 
 	var inst *project.Instance
 	for b.Loop() {
-		inst, err = pm.Load(root, ".")
+		inst, err = pm.Load(ctx, root, ".")
 		b.StopTimer()
 		assert.NilError(b, err)
 		b.StartTimer()

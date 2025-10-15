@@ -4,7 +4,7 @@ _crd: {
 	apiVersion: "apiextensions.k8s.io/v1"
 	kind:       "CustomResourceDefinition"
 	metadata: {
-		annotations: "controller-gen.kubebuilder.io/version": "v0.18.0"
+		annotations: "controller-gen.kubebuilder.io/version": "v0.19.0"
 		name: "gitopsprojects.gitops.navecd.io"
 	}
 	spec: {
@@ -45,15 +45,32 @@ _crd: {
 					spec: {
 						description: "GitOpsProjectSpec defines the desired state of GitOpsProject"
 						properties: {
-							branch: {
-								description: "The branch of the gitops repository holding navecd configuration."
-								minLength:   1
-								type:        "string"
+							auth: {
+								description: "Authentication information for private oci repositories."
+								properties: {
+									secretRef: {
+										description: "SecretRef is the reference to the secret containing the repository/registry authentication."
+										properties: name: type: "string"
+										required: ["name"]
+										type: "object"
+									}
+									workloadIdentity: {
+										description: "WorkloadIdentity is a keyless approach used for repository/registry authentication."
+										properties: provider: type: "string"
+										required: ["provider"]
+										type: "object"
+									}
+								}
+								required: [
+									"secretRef",
+									"workloadIdentity",
+								]
+								type: "object"
 							}
 							dir: {
 								default: "."
 								description: """
-	The directory of the gitops repository holding navecd configuration.
+	The directory of the gitops repository containing navecd configuration.
 	Can be "." for root.
 	"""
 								minLength: 1
@@ -63,6 +80,11 @@ _crd: {
 								description: "This defines how often navecd will try to fetch changes from the gitops repository."
 								minimum:     5
 								type:        "integer"
+							}
+							ref: {
+								description: "The reference to the gitops repository containing navecd configuration."
+								minLength:   1
+								type:        "string"
 							}
 							serviceAccountName: type: "string"
 							suspend: {
@@ -79,9 +101,9 @@ _crd: {
 							}
 						}
 						required: [
-							"branch",
 							"dir",
 							"pullIntervalSeconds",
+							"ref",
 							"url",
 						]
 						type: "object"
@@ -161,7 +183,7 @@ _crd: {
 							}
 							revision: {
 								properties: {
-									commitHash: type: "string"
+									digest: type: "string"
 									reconcileTime: {
 										format: "date-time"
 										type:   "string"

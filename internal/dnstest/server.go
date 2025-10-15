@@ -52,6 +52,9 @@ func NewDNSServer() (*DNSServer, error) {
 		"index.docker.io.": {
 			CNAME: "navecd.io",
 		},
+		"registry.cue.works": {
+			A: []string{"127.0.0.1"},
+		},
 		fmt.Sprintf("%s.", cloudtest.AWSRegistryHost): {
 			A: []string{"127.0.0.1"},
 		},
