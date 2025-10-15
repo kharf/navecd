@@ -36,6 +36,7 @@ func main() {
 	root := RootCommandBuilder{}
 	if err := root.Build().Execute(); err != nil {
 		fmt.Println(err)
+		os.Exit(1)
 		return
 	}
 }
@@ -159,6 +160,7 @@ func (builder InstallCommandBuilder) Build() *cobra.Command {
 	var shard string
 	var wip string
 	var secretRef string
+	var insecureRegistry bool
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "Install Navecd onto a Kubernetes Cluster",
@@ -183,14 +185,15 @@ func (builder InstallCommandBuilder) Build() *cobra.Command {
 			action := project.NewInstallAction(client, httpClient, wd)
 			if _, err := action.Install(ctx,
 				project.InstallOptions{
-					Url:       url,
-					Ref:       ref,
-					Dir:       dir,
-					Name:      name,
-					Interval:  interval,
-					Shard:     shard,
-					WIP:       wip,
-					SecretRef: secretRef,
+					Url:              url,
+					Ref:              ref,
+					Dir:              dir,
+					Name:             name,
+					Interval:         interval,
+					Shard:            shard,
+					WIP:              wip,
+					SecretRef:        secretRef,
+					InsecureRegistry: insecureRegistry,
 				},
 			); err != nil {
 				return err
@@ -206,6 +209,7 @@ func (builder InstallCommandBuilder) Build() *cobra.Command {
 	cmd.Flags().StringVar(&shard, "shard", "primary", "Navecd Instance/Shard responsible for reconciliation")
 	cmd.Flags().StringVar(&wip, "wip", "", "Workload Identity Provider used for OCI registry access. Supported values are 'aws', 'azure' and 'gcp'")
 	cmd.Flags().StringVar(&secretRef, "secret", "", "Reference to the Kubernetes secret containing the OCI registry credentials in the Navecd controller namespace")
+	cmd.Flags().BoolVar(&insecureRegistry, "insecure", false, "Insecure allows communicating with OCI registries without TLS")
 
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("url")
@@ -218,6 +222,7 @@ type PushArtifactCommandBuilder struct{}
 func (builder PushArtifactCommandBuilder) Build() *cobra.Command {
 	var ref string
 	var url string
+	var insecureRegistry bool
 	cmd := &cobra.Command{
 		Use:   "push",
 		Short: "Builds and pushes a Navecd Project OCI artifact to the specified OCI Repository",
@@ -236,6 +241,9 @@ func (builder PushArtifactCommandBuilder) Build() *cobra.Command {
 			digest, err := projectClient.PushImageFromPath(
 				ref,
 				cwd,
+				oci.WithRepositoryOption(
+					oci.WithInsecure(insecureRegistry),
+				),
 			)
 			if err != nil {
 				return err
@@ -246,6 +254,7 @@ func (builder PushArtifactCommandBuilder) Build() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&url, "url", "u", "", "Url to the OCI GitOps Repository")
 	cmd.Flags().StringVarP(&ref, "ref", "r", "main", "Ref to the OCI GitOps Repository")
+	cmd.Flags().BoolVar(&insecureRegistry, "insecure", false, "Insecure allows communicating with OCI registries without TLS")
 
 	_ = cmd.MarkFlagRequired("url")
 	_ = cmd.MarkFlagRequired("ref")

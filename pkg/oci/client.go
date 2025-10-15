@@ -80,7 +80,8 @@ type basicAuthOpt struct {
 }
 
 type options struct {
-	auth *basicAuthOpt
+	auth     *basicAuthOpt
+	insecure bool
 }
 
 type Option func(opts *options)
@@ -91,6 +92,12 @@ func WithBasicAuth(user, password string) Option {
 			user:     user,
 			password: password,
 		}
+	}
+}
+
+func WithInsecure(insecure bool) Option {
+	return func(opts *options) {
+		opts.insecure = insecure
 	}
 }
 
@@ -181,6 +188,10 @@ func evalCraneOpts(opts []Option) []crane.Option {
 			Username: options.auth.user,
 			Password: options.auth.password,
 		}))
+	}
+
+	if options.insecure {
+		craneOptions = append(craneOptions, crane.Insecure)
 	}
 
 	return craneOptions

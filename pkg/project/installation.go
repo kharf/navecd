@@ -39,14 +39,15 @@ var (
 )
 
 type InstallOptions struct {
-	Url       string
-	Ref       string
-	Dir       string
-	Name      string
-	WIP       string
-	SecretRef string
-	Interval  int
-	Shard     string
+	Url              string
+	Ref              string
+	Dir              string
+	Name             string
+	WIP              string
+	SecretRef        string
+	Interval         int
+	Shard            string
+	InsecureRegistry bool
 }
 
 type InstallAction struct {
@@ -168,6 +169,9 @@ func (act InstallAction) Install(ctx context.Context, opts InstallOptions) (stri
 	digest, err := projectClient.PushImageFromPath(
 		opts.Ref,
 		act.projectRoot,
+		oci.WithRepositoryOption(
+			oci.WithInsecure(opts.InsecureRegistry),
+		),
 	)
 	if err != nil {
 		return "", err
