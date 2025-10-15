@@ -196,7 +196,7 @@ workflows: [
 				{
 					name:                "Install Navecd"
 					"working-directory": "./e2e"
-					run:                 "navecd install -u ${{ steps.kind.outputs.LOCAL_REGISTRY }}/project -r ${{ matrix.cluster.name }} --name ${{ matrix.cluster.name }}"
+					run:                 "navecd install -u ${{ steps.kind.outputs.LOCAL_REGISTRY }}/project -r ${{ matrix.cluster.name }} --name ${{ matrix.cluster.name }} --insecure"
 				},
 				{
 					name: "Test Installation"
