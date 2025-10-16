@@ -232,7 +232,7 @@ func (builder PushArtifactCommandBuilder) Build() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ociClient, err := oci.NewRepositoryClient(url)
+			ociClient, err := oci.NewRepositoryClient(url, insecureRegistry)
 			if err != nil {
 				return err
 			}

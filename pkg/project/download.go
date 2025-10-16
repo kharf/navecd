@@ -20,7 +20,7 @@ type RecoverableLoadError struct {
 var _ error = (*RecoverableLoadError)(nil)
 
 func (d *RecoverableLoadError) Error() string {
-	return "Load error"
+	return d.Err.Error()
 }
 
 func (d *RecoverableLoadError) Unwrap() error {
@@ -54,6 +54,10 @@ type OCIRemoteLoader struct {
 	// Namespace the controller runs in.
 	Namespace string
 
+	// InsecureSkipVerify controls whether to verify oci registry
+	// certificate chains and host names.
+	InsecureSkipTLSverify bool
+
 	// Endpoint to the microsoft azure login server.
 	// Default is usually: https://login.microsoftonline.com/.
 	AzureLoginURL string
@@ -85,12 +89,14 @@ func (loader *OCIRemoteLoader) Load(
 		if err != nil {
 			return "", err
 		}
-		opts = append(opts, oci.WithRepositoryOption(oci.WithBasicAuth(creds.Username, creds.Password)))
+		opts = append(opts, oci.WithRepositoryOption(
+			oci.WithBasicAuth(creds.Username, creds.Password)),
+		)
 	}
 
 	opts = append(opts, oci.WithCacheDir(loader.CacheDir))
 
-	ociClient, err := oci.NewRepositoryClient(repository.Name)
+	ociClient, err := oci.NewRepositoryClient(repository.Name, loader.InsecureSkipTLSverify)
 	if err != nil {
 		return "", err
 	}

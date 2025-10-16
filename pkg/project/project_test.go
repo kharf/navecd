@@ -373,8 +373,9 @@ ns: component.#Manifest & {
 		".",
 		withProjectLoader,
 	)
+
 	assert.NilError(t, err)
-	assert.Error(t, instance.LoadError, (&project.RecoverableLoadError{}).Error())
+	assert.ErrorContains(t, instance.LoadError, "connection refused")
 
 	manifest = instance.Dag.Get(manifestID)
 	assert.Assert(t, manifest != nil)

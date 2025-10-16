@@ -93,7 +93,7 @@ func (env *Environment) PushProject(t testing.TB, projectName string, tag string
 	assert.NilError(t, err)
 
 	repoName := fmt.Sprintf("%s/%s", env.OCIRegistry.Addr(), projectName)
-	ociClient, err := oci.NewRepositoryClient(repoName)
+	ociClient, err := oci.NewRepositoryClient(repoName, false)
 	assert.NilError(t, err)
 	projectClient := oci.NewProjectClient(ociClient)
 

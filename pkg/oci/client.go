@@ -107,8 +107,13 @@ type Client interface {
 	PushImage(img v1.Image, tag string, path string, opts ...Option) (string, error)
 }
 
-func NewRepositoryClient(repoName string) (Client, error) {
-	repository, err := name.NewRepository(repoName)
+func NewRepositoryClient(repoName string, insecure bool) (Client, error) {
+	var insecureOpts []name.Option
+	if insecure {
+		insecureOpts = append(insecureOpts, name.Insecure)
+	}
+
+	repository, err := name.NewRepository(repoName, insecureOpts...)
 	if err != nil {
 		return nil, err
 	}

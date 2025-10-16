@@ -46,6 +46,7 @@ func main() {
 	var namespacePodinfoPath string
 	var namePodinfoPath string
 	var shardPodinfoPath string
+	var inventoryPath string
 	var insecureSkipTLSverify bool
 	var plainHTTP bool
 	flag.StringVar(
@@ -79,11 +80,17 @@ func main() {
 		"",
 		"The file which holds the controller shard.",
 	)
+	flag.StringVar(
+		&inventoryPath,
+		"inventory-path",
+		"",
+		"The dir which holds the inventory.",
+	)
 	flag.BoolVar(
 		&insecureSkipTLSverify,
 		"insecure-skip-tls-verify",
 		false,
-		"InsecureSkipVerify controls whether the Helm client verifies the server's certificate chain and host name.",
+		"InsecureSkipVerify controls whether clients verify server certificate chains and host names",
 	)
 	flag.BoolVar(
 		&plainHTTP,
@@ -100,6 +107,7 @@ func main() {
 		controller.NamePodinfoPath(namePodinfoPath),
 		controller.NamespacePodinfoPath(namespacePodinfoPath),
 		controller.ShardPodinfoPath(shardPodinfoPath),
+		controller.InventoryPath(inventoryPath),
 		controller.MetricsAddr(metricsAddr),
 		controller.ProbeAddr(probeAddr),
 		controller.LogLevel(logLevel),

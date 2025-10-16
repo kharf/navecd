@@ -113,7 +113,7 @@ func defaultAssertion(
 	)
 	assert.NilError(t, err)
 
-	ociClient, err := oci.NewRepositoryClient(fmt.Sprintf("%s/%s", registry.Addr(), projectName))
+	ociClient, err := oci.NewRepositoryClient(fmt.Sprintf("%s/%s", registry.Addr(), projectName), false)
 	assert.NilError(t, err)
 	projectClient := oci.NewProjectClient(ociClient)
 	tmpDir, err := os.MkdirTemp("", "")

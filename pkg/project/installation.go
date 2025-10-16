@@ -160,7 +160,7 @@ func (act InstallAction) Install(ctx context.Context, opts InstallOptions) (stri
 		}
 	}
 
-	ociClient, err := oci.NewRepositoryClient(opts.Url)
+	ociClient, err := oci.NewRepositoryClient(opts.Url, opts.InsecureRegistry)
 	if err != nil {
 		return "", err
 	}

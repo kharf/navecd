@@ -49,7 +49,7 @@ type Reconciler struct {
 	// Defines the concurrency level of Navecd operations.
 	WorkerPoolSize int
 
-	// InsecureSkipVerify controls whether Helm clients verify server
+	// InsecureSkipVerify controls whether clients verify server
 	// certificate chains and host names.
 	InsecureSkipTLSverify bool
 

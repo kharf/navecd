@@ -172,6 +172,7 @@ type setupOptions struct {
 	NamePodinfoPath       string
 	NamespacePodinfoPath  string
 	ShardPodinfoPath      string
+	InventoryPath         string
 	MetricsAddr           string
 	ProbeAddr             string
 	LogLevel              int
@@ -204,6 +205,14 @@ type ShardPodinfoPath string
 func (opt ShardPodinfoPath) apply(options *setupOptions) {
 	if opt != "" {
 		options.ShardPodinfoPath = string(opt)
+	}
+}
+
+type InventoryPath string
+
+func (opt InventoryPath) apply(options *setupOptions) {
+	if opt != "" {
+		options.InventoryPath = string(opt)
 	}
 }
 
@@ -246,6 +255,7 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, error) {
 		NamePodinfoPath:       "/podinfo/name",
 		NamespacePodinfoPath:  "/podinfo/namespace",
 		ShardPodinfoPath:      "/podinfo/shard",
+		InventoryPath:         "/inventory",
 		MetricsAddr:           ":8080",
 		ProbeAddr:             ":8081",
 		InsecureSkipTLSverify: false,
@@ -360,7 +370,7 @@ func Setup(cfg *rest.Config, options ...option) (manager.Manager, error) {
 			PlainHTTP:             opts.PlainHTTP,
 			CacheDir:              os.TempDir(),
 			// /inventory is mounted as volume.
-			InventoryRootDir: "/inventory",
+			InventoryRootDir: opts.InventoryPath,
 			Namespace:        namespace,
 		},
 	}).SetupWithManager(mgr, controllerName); err != nil {

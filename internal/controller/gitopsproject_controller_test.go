@@ -223,7 +223,7 @@ var _ = Describe("GitOpsProject controller", Ordered, func() {
 					)
 					Expect(err).NotTo(HaveOccurred())
 
-					ociClient, err := oci.NewRepositoryClient(repository.Name)
+					ociClient, err := oci.NewRepositoryClient(repository.Name, false)
 					Expect(err).NotTo(HaveOccurred())
 					projectClient := oci.NewProjectClient(ociClient)
 					tmpDir, err := os.MkdirTemp("", "")
