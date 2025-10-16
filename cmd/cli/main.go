@@ -226,7 +226,7 @@ func (builder PushArtifactCommandBuilder) Build() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "push",
 		Short: "Builds and pushes a Navecd Project OCI artifact to the specified OCI Repository",
-		Args:  cobra.MinimumNArgs(2),
+		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			cwd, err := os.Getwd()
 			if err != nil {
