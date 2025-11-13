@@ -23,7 +23,7 @@ var (
 func (n *Navecd) buildEnv(source *dagger.Directory) *dagger.Container {
 	goCache := dag.CacheVolume("go")
 	return dag.Container().
-		From("golang:1.25.3-alpine").
+		From("golang:1.25.4-alpine").
 		WithExec([]string{"apk", "add", "--no-cache", "git"}).
 		WithExec([]string{"apk", "add", "--no-cache", "openssh-client"}).
 		WithExec([]string{"apk", "add", "--no-cache", "curl"}).
