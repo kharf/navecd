@@ -39,8 +39,9 @@ import (
 	name: string
 	uses: "dagger/dagger-for-github@v8.2.0"
 	with: {
-		call?: string
-		verb?: string
+		call?:   string
+		verb?:   string
+		version: "v0.19.2"
 	}
 	env?: {
 		[string]: string | number | bool

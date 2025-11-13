@@ -20,10 +20,12 @@ jobs:
         uses: dagger/dagger-for-github@v8.2.0
         with:
           call: gen-workflows --source=. export --path=.github/workflows
+          version: v0.19.2
       - name: Commit Workflows
         uses: dagger/dagger-for-github@v8.2.0
         with:
           call: commit-workflows --source=. --token=env:GITHUB_TOKEN
+          version: v0.19.2
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
   Test:
@@ -38,4 +40,5 @@ jobs:
         uses: dagger/dagger-for-github@v8.2.0
         with:
           call: test --source=.
+          version: v0.19.2
 permissions: read-all

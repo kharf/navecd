@@ -17,6 +17,7 @@ jobs:
         uses: dagger/dagger-for-github@v8.2.0
         with:
           call: update --token=env:GITHUB_TOKEN
+          version: v0.19.2
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
 permissions: read-all

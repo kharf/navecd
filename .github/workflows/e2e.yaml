@@ -40,6 +40,7 @@ jobs:
         uses: dagger/dagger-for-github@v8.2.0
         with:
           call: build --source=. export --path=./dist
+          version: v0.19.2
       - name: Publish locally
         run: |-
           mv ./dist/cli_linux_amd64_v1/navecd /usr/local/bin/navecd
