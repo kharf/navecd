@@ -144,7 +144,7 @@ workflows: [
 				},
 				{
 					name: "Create Kubernetes Cluster"
-					uses: "helm/kind-action@v1.12.0"
+					uses: "helm/kind-action@v1.13.0"
 					id:   "kind"
 					with: {
 						cluster_name:           "${{ matrix.cluster.name }}"
