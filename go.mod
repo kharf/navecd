@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.39.6
 	github.com/aws/aws-sdk-go-v2/config v1.31.20
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.24
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.51.4
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.52.0
 	github.com/foxcpp/go-mockdns v1.1.0
 	github.com/google/go-containerregistry v0.20.6
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.9
