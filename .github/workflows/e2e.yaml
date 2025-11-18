@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v5.0.1
         with:
           token: ${{ secrets.PAT }}
           ref: ${{ github.head_ref || github.ref_name }}
@@ -52,7 +52,7 @@ jobs:
           docker build . -t ${{ steps.kind.outputs.LOCAL_REGISTRY }}/navecd:0.0.0-dev
           docker push ${{ steps.kind.outputs.LOCAL_REGISTRY }}/navecd:0.0.0-dev
       - name: Checkout E2E Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v5.0.1
         with:
           token: ${{ secrets.PAT }}
           repository: kharf/navecd-e2e
