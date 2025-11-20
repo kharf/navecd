@@ -28,7 +28,7 @@ import (
 
 #setupGo: {
 	name: "Setup Go"
-	uses: "actions/setup-go@v6"
+	uses: "actions/setup-go@v6.1.0"
 	with: {
 		"go-version-file":       "go.mod"
 		"cache-dependency-path": "go.sum"
