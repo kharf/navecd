@@ -48,7 +48,7 @@ func Init(
 		moduleFile := &modfile.File{
 			Module: module,
 			Language: &modfile.Language{
-				Version: "v0.15.0",
+				Version: "v0.15.1",
 			},
 			Deps: map[string]*modfile.Dep{
 				"github.com/kharf/navecd/schema@v0": {
