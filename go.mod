@@ -5,7 +5,7 @@ go 1.25
 toolchain go1.25.4
 
 require (
-	cuelang.org/go v0.15.0
+	cuelang.org/go v0.15.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.20.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/aws/aws-sdk-go-v2 v1.39.6
