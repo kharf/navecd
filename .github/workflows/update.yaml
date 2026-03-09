@@ -14,7 +14,7 @@ jobs:
         with:
           token: ${{ secrets.PAT }}
       - name: Update
-        uses: dagger/dagger-for-github@v8.2.0
+        uses: dagger/dagger-for-github@v8.4.0
         with:
           call: update --token=env:GITHUB_TOKEN
           version: v0.19.2
