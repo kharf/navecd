@@ -13,7 +13,7 @@ require (
 	github.com/foxcpp/go-mockdns v1.2.0
 	github.com/google/go-containerregistry v0.20.6
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.9
-	github.com/onsi/ginkgo/v2 v2.28.0
+	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/goleak v1.3.0
