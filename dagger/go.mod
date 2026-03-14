@@ -1,6 +1,6 @@
 module dagger/navecd
 
-go 1.25
+go 1.26.0
 
 require (
 	github.com/vektah/gqlparser/v2 v2.5.31
