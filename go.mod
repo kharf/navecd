@@ -2,8 +2,6 @@ module github.com/kharf/navecd
 
 go 1.25.0
 
-toolchain go1.25.4
-
 require (
 	cuelang.org/go v0.16.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
