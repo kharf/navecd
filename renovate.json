@@ -22,10 +22,10 @@
     "customManagers": [
         {
             "customType": "regex",
-            "fileMatch": [
-                "^(.*?)cue.mod/module.cue$",
-                "^(.*?)project/init.go$",
-                "^(.*?)testtemplates/templates.go$"
+            "managerFilePatterns": [
+                "/^(.*?)cue.mod/module.cue$/",
+                "/^(.*?)project/init.go$/",
+                "/^(.*?)testtemplates/templates.go$/"
             ],
             "matchStrings": [
                 "version: \"(?<currentValue>.*?)\"",
@@ -38,10 +38,10 @@
         },
         {
             "customType": "regex",
-            "fileMatch": [
-                "^(.*?)cue.mod/module.cue$",
-                "^(.*?)project/init.go$",
-                "^(.*?)testtemplates/templates.go$"
+            "managerFilePatterns": [
+                "/^(.*?)cue.mod/module.cue$/",
+                "/^(.*?)project/init.go$/",
+                "/^(.*?)testtemplates/templates.go$/"
             ],
             "matchStrings": [
                 "\"github.com/kharf/navecd/schema@v.\": {\n(\t*)v: \"(?<currentValue>.*?)\"\n(\t*)}",
@@ -53,8 +53,8 @@
         },
         {
             "customType": "regex",
-            "fileMatch": [
-                "^(.*?).cue$"
+            "managerFilePatterns": [
+                "/^(.*?).cue$/"
             ],
             "matchStrings": [
                 "uses: \"(?<depName>.*?)@(?<currentValue>.*?)\""
@@ -64,8 +64,8 @@
         },
         {
             "customType": "regex",
-            "fileMatch": [
-                "^(.*?).go$"
+            "managerFilePatterns": [
+                "/^(.*?).go$/"
             ],
             "matchStrings": [
                 "var kubernetesVersion = \"(?<currentValue>.*?)\""
@@ -76,8 +76,8 @@
         },
         {
             "customType": "regex",
-            "fileMatch": [
-                "^(.*?).go$"
+            "managerFilePatterns": [
+                "/^(.*?).go$/"
             ],
             "matchStrings": [
                 "From\\(\"(?<depName>.*?):(?<currentValue>.*?)\"\\)"
@@ -86,8 +86,8 @@
         },
         {
             "customType": "regex",
-            "fileMatch": [
-                "^(.*?).go$"
+            "managerFilePatterns": [
+                "/^(.*?).go$/"
             ],
             "matchStrings": [
                 "var cueDep = \"(?<depName>.*?)@(?<currentValue>.*?)\"",
@@ -99,10 +99,10 @@
         },
         {
             "customType": "regex",
-            "fileMatch": [
-                "^(.*?).go$",
-                "^(.*?).cue$",
-                "README.md"
+            "managerFilePatterns": [
+                "/^(.*?).go$/",
+                "/^(.*?).cue$/",
+                "/README.md/"
             ],
             "matchStrings": [
                 "https://github.com/(?<depName>.*?)/releases/download/(?<currentValue>.*?)/"
