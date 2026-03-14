@@ -2,7 +2,7 @@ module github.com/kharf/navecd
 
 go 1.25.0
 
-toolchain go1.25.4
+toolchain go1.26.1
 
 require (
 	cuelang.org/go v0.16.0
