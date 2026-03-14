@@ -41,7 +41,7 @@ import (
 	with: {
 		call?:   string
 		verb?:   string
-		version: "v0.19.2"
+		version: "latest"
 	}
 	env?: {
 		[string]: string | number | bool
