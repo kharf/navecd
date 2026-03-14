@@ -112,6 +112,7 @@ customManagers: [
 			"var cueDep = \"(?<depName>.*?)@(?<currentValue>.*?)\"",
 			"var controllerGenDep = \"(?<depName>.*?)@(?<currentValue>.*?)\"",
 			"var goreleaserDep = \"(?<depName>.*?)@(?<currentValue>.*?)\"",
+			"var gotestsumDep = \"(?<depName>.*?)@(?<currentValue>.*?)\"",
 		]
 		datasourceTemplate: "go"
 	},

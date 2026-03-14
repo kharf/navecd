@@ -82,7 +82,7 @@ func (n *Navecd) kubernetesTestEnv(
 var controllerGenDep = "sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0"
 
 // when changed, the renovate customManager has also to be updated.
-var cueDep = "cuelang.org/go/cmd/cue@v0.15.0"
+var cueDep = "cuelang.org/go/cmd/cue@v0.16.0"
 
 func (n *Navecd) GenApi(source *dagger.Directory) *dagger.File {
 	return n.buildEnv(source).
@@ -92,6 +92,9 @@ func (n *Navecd) GenApi(source *dagger.Directory) *dagger.File {
 		WithExec([]string{"bin/cue", "import", "-f", "-o", "internal/manifest/crd.cue", "internal/manifest/gitops.navecd.io_gitopsprojects.yaml", "-l", "_crd:", "-p", "navecd"}).
 		File("internal/manifest/crd.cue")
 }
+
+// when changed, the renovate customManager has also to be updated.
+var gotestsumDep = "gotest.tools/gotestsum@v1.13.0"
 
 func (n *Navecd) Test(
 	ctx context.Context,
@@ -105,24 +108,27 @@ func (n *Navecd) Test(
 	if err != nil {
 		return "", err
 	}
+	prepareTest = prepareTest.
+		WithExec([]string{"go", "install", gotestsumDep})
 
 	if pkg == "" && test == "" {
 		return prepareTest.
 			WithExec(
 				[]string{
-					"go",
-					"test",
-					"-v",
-					"./...",
+					"bin/gotestsum",
+					"--format",
+					"testname",
+					"--",
 					"-coverprofile",
 					"cover.out",
+					"./...",
 				},
 			).
 			Stdout(ctx)
 	}
 
 	return prepareTest.
-		WithExec([]string{"go", "test", "-v", "./" + pkg, "-run", test}).
+		WithExec([]string{"bin/gotestsum", "--format", "testname", "--", "./" + pkg, "-run", test}).
 		Stdout(ctx)
 }
 
