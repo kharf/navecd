@@ -48,7 +48,7 @@ import (
 	"github.com/kharf/navecd/pkg/component"
 	"github.com/kharf/navecd/pkg/project"
 	"github.com/prometheus/client_golang/prometheus"
-	helmKube "helm.sh/helm/v3/pkg/kube"
+	helmKube "helm.sh/helm/v4/pkg/kube"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	// +kubebuilder:scaffold:imports

@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v4/pkg/action"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -571,7 +571,7 @@ func (e *ExtendedDynamicClient) applyWithoutIgnoredFields(
 		unstr = obj.DeepCopy()
 
 		for _, cause := range conflictCauses {
-			if err := removeIgnoredFields(cause.Field, unstr.Object, *obj.Metadata); err != nil {
+			if err := RemoveIgnoredFields(cause.Field, unstr.Object, *obj.Metadata); err != nil {
 				return nil, err
 			}
 		}
@@ -655,7 +655,7 @@ func (client *ExtendedDynamicClient) Patch(
 	return client.dynamicClient.patch(ctx, obj.Unstructured, fieldManager, options)
 }
 
-func removeIgnoredFields(
+func RemoveIgnoredFields(
 	jsonPath string,
 	unstrMap map[string]any,
 	metadata ManifestMetadata,

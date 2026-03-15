@@ -33,14 +33,16 @@ import (
 	"github.com/kharf/navecd/pkg/inventory"
 	"github.com/kharf/navecd/pkg/kube"
 	"gopkg.in/yaml.v3"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/cli"
-	helmKube "helm.sh/helm/v3/pkg/kube"
-	"helm.sh/helm/v3/pkg/registry"
-	"helm.sh/helm/v3/pkg/release"
-	"helm.sh/helm/v3/pkg/storage/driver"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/chart/loader"
+	chart "helm.sh/helm/v4/pkg/chart/v2"
+	"helm.sh/helm/v4/pkg/cli"
+	helmKube "helm.sh/helm/v4/pkg/kube"
+	"helm.sh/helm/v4/pkg/registry"
+	release "helm.sh/helm/v4/pkg/release"
+	"helm.sh/helm/v4/pkg/release/common"
+	releasev1 "helm.sh/helm/v4/pkg/release/v1"
+	"helm.sh/helm/v4/pkg/storage/driver"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,7 +81,7 @@ type ChartReconciler struct {
 
 	// InsecureSkipVerify controls whether the Helm client verifies the server's
 	// certificate chain and host name.
-	InsecureSkipTLSverify bool
+	InsecureSkipTLSVerify bool
 
 	// Force http for Helm registries.
 	PlainHTTP bool
@@ -170,7 +172,7 @@ func (c *ChartReconciler) Delete(name string, namespace string) error {
 		return err
 	}
 	client := action.NewUninstall(helmCfg)
-	client.Wait = false
+	client.WaitStrategy = helmKube.HookOnlyStrategy
 	_, err = client.Run(name)
 	if err != nil {
 		return err
@@ -185,22 +187,17 @@ func initDeleteConfig(
 	restMapper meta.RESTMapper,
 ) (*action.Configuration, error) {
 	helmCfg := &action.Configuration{}
-	voidLog := func(string, ...interface{}) {}
 	getter := &kube.InMemoryRESTClientGetter{
 		Cfg:        kubeConfig,
 		RestMapper: restMapper,
 	}
-	err := helmCfg.Init(getter, namespace, "secret", voidLog)
+	err := helmCfg.Init(getter, namespace, "secret")
 	if err != nil {
 		return nil, err
 	}
 	helmKubeClient := helmCfg.KubeClient.(*helmKube.Client)
 	// Set namespace to the release namespace in order to avoid taking the namespace from the kube config.
 	helmKubeClient.Namespace = namespace
-	// fieldManager is irrelevant for deleting.
-	helmCfg.KubeClient = &Client{
-		Client: helmKubeClient,
-	}
 	return helmCfg, nil
 }
 
@@ -213,24 +210,17 @@ func Init(
 	fieldManager string,
 ) (*action.Configuration, error) {
 	helmCfg := &action.Configuration{}
-	voidLog := func(string, ...interface{}) {}
 	getter := &kube.InMemoryRESTClientGetter{
 		Cfg:        kubeConfig,
 		RestMapper: client.RESTMapper(),
 	}
-	err := helmCfg.Init(getter, release.Namespace, "secret", voidLog)
+	err := helmCfg.Init(getter, release.Namespace, "secret")
 	if err != nil {
 		return nil, err
 	}
 	helmKubeClient := helmCfg.KubeClient.(*helmKube.Client)
 	// Set namespace to the release namespace in order to avoid taking the namespace from the kube config.
 	helmKubeClient.Namespace = release.Namespace
-	helmCfg.KubeClient = &Client{
-		Client:        helmKubeClient,
-		DynamicClient: client,
-		FieldManager:  fieldManager,
-		Patches:       release.Patches,
-	}
 	return helmCfg, nil
 }
 
@@ -261,17 +251,12 @@ func (c *ChartReconciler) installOrUpgrade(
 		return c.install(ctx, desiredRelease, chrt)
 	}
 	if len(releases) == 1 {
-		if releases[0].Info.Status == release.StatusPendingInstall {
-			if err := reset(ctx, releases[0]); err != nil {
+		rel := releases[0].(*releasev1.Release)
+		if rel.Info.Status == common.StatusPendingInstall {
+			if err := reset(ctx, rel); err != nil {
 				return nil, err
 			}
 			return c.install(ctx, desiredRelease, chrt)
-		}
-	}
-
-	if desiredRelease.CRDs.ForceUpgrade {
-		if err = c.upgradeCRDs(ctx, chrt); err != nil {
-			return nil, err
 		}
 	}
 
@@ -288,7 +273,7 @@ func (c *ChartReconciler) installOrUpgrade(
 
 	if drift.driftType == none {
 		log.V(1).Info("No changes")
-		latestInternalRelease := releases[len(releases)-1]
+		latestInternalRelease := releases[len(releases)-1].(*releasev1.Release)
 		return &Release{
 			Name:      latestInternalRelease.Name,
 			Namespace: latestInternalRelease.Namespace,
@@ -304,31 +289,51 @@ func (c *ChartReconciler) installOrUpgrade(
 
 	upgrade := action.NewUpgrade(helmConfig)
 	upgrade.PlainHTTP = c.PlainHTTP
-	upgrade.Wait = false
+	upgrade.WaitStrategy = helmKube.HookOnlyStrategy
 	upgrade.Namespace = desiredRelease.Namespace
+	upgrade.ServerSideApply = "true"
 	upgrade.MaxHistory = 5
-	if desiredRelease.Patches != nil {
-		upgrade.PostRenderer = &PostRenderer{
-			Patches: desiredRelease.Patches,
-		}
-	}
+
 	if drift.driftType == conflict {
-		upgrade.Force = true
+		upgrade.ForceConflicts = true
+		if desiredRelease.Patches != nil {
+			statusErr, ok := drift.cause.(*k8sErrors.StatusError)
+			if !ok || statusErr.Status().Reason != v1.StatusReasonConflict {
+				return nil, err
+			}
+
+			var jsonPaths []string
+			for _, jsonPath := range statusErr.Status().Details.Causes {
+				jsonPaths = append(jsonPaths, jsonPath.Field)
+			}
+
+			upgrade.PostRenderer = &PostRenderer{
+				Patches:   desiredRelease.Patches,
+				JsonPaths: jsonPaths,
+			}
+		}
+	} else {
+		if desiredRelease.Patches != nil {
+			upgrade.PostRenderer = &PostRenderer{
+				Patches: desiredRelease.Patches,
+			}
+		}
 	}
 
 	log.Info("Upgrading release")
 
 	// CRDs are always only upgraded, never deleted
-	if desiredRelease.CRDs.AllowUpgrade && !desiredRelease.CRDs.ForceUpgrade {
+	if desiredRelease.CRDs.AllowUpgrade {
 		if err = c.upgradeCRDs(ctx, chrt); err != nil {
 			return nil, err
 		}
 	}
 
-	release, err := upgrade.Run(desiredRelease.Name, chrt, desiredRelease.Values)
+	releaser, err := upgrade.Run(desiredRelease.Name, chrt, desiredRelease.Values)
 	if err != nil {
 		return nil, err
 	}
+	release := releaser.(*releasev1.Release)
 
 	return &Release{
 		Name:      release.Name,
@@ -366,16 +371,16 @@ type driftType string
 
 const (
 	conflict driftType = "conflict"
-	deleted            = "deleted"
-	update             = "update"
-	none               = "none"
+	deleted  driftType = "deleted"
+	update   driftType = "update"
+	none     driftType = "none"
 )
 
 func (c *ChartReconciler) diff(
 	ctx context.Context,
 	component *ReleaseComponent,
 	loadedChart *chart.Chart,
-	releases []*release.Release,
+	releases []release.Releaser,
 	inventoryInstance *inventory.Instance,
 ) (*drift, error) {
 	releaseDeclaration := component.Content
@@ -383,18 +388,19 @@ func (c *ChartReconciler) diff(
 	helmConfig := ctx.Value(configKey{}).(*action.Configuration)
 	upgrade := action.NewUpgrade(helmConfig)
 	upgrade.PlainHTTP = c.PlainHTTP
-	upgrade.Wait = false
+	upgrade.WaitStrategy = helmKube.HookOnlyStrategy
 	upgrade.Namespace = releaseDeclaration.Namespace
-	upgrade.DryRun = true
+	upgrade.DryRunStrategy = action.DryRunServer
+	upgrade.ServerSideApply = "true"
 	if releaseDeclaration.Patches != nil {
 		upgrade.PostRenderer = &PostRenderer{
 			Patches: releaseDeclaration.Patches,
 		}
 	}
 
-	release, err := upgrade.Run(releaseDeclaration.Name, loadedChart, releaseDeclaration.Values)
+	releaser, err := upgrade.Run(releaseDeclaration.Name, loadedChart, releaseDeclaration.Values)
 	if err != nil {
-		release := releases[len(releases)-1]
+		release := releases[len(releases)-1].(*releasev1.Release)
 		if !release.Info.Status.IsPending() {
 			return nil, err
 		}
@@ -408,6 +414,7 @@ func (c *ChartReconciler) diff(
 			cause:     err,
 		}, nil
 	}
+	release := releaser.(*releasev1.Release)
 
 	crds := loadedChart.CRDObjects()
 	for _, crd := range crds {
@@ -605,7 +612,8 @@ func (c *ChartReconciler) install(
 
 	install := action.NewInstall(helmConfig)
 	install.PlainHTTP = c.PlainHTTP
-	install.Wait = false
+	install.WaitStrategy = helmKube.HookOnlyStrategy
+	install.ServerSideApply = true
 	install.ReleaseName = desiredRelease.Name
 	install.CreateNamespace = false
 	install.Namespace = desiredRelease.Namespace
@@ -617,11 +625,12 @@ func (c *ChartReconciler) install(
 
 	log.V(1).Info("Installing chart")
 
-	release, err := install.Run(loadedChart, desiredRelease.Values)
+	releaser, err := install.Run(loadedChart, desiredRelease.Values)
 	if err != nil {
 		log.Error(err, "Installing chart failed")
 		return nil, err
 	}
+	release := releaser.(*releasev1.Release)
 
 	return &Release{
 		Name:      release.Name,
@@ -636,7 +645,7 @@ func (c *ChartReconciler) install(
 
 func reset(
 	ctx context.Context,
-	release *release.Release,
+	release *releasev1.Release,
 ) error {
 	log := ctx.Value(logKey{}).(*logr.Logger)
 
@@ -661,7 +670,7 @@ func (c *ChartReconciler) load(
 
 	var err error
 	archivePath := newArchivePath(chartRequest, c.ChartCacheRoot)
-	chart, err := loader.Load(archivePath.fullPath)
+	charter, err := loader.Load(archivePath.fullPath)
 	if err != nil {
 		pathErr := &fs.PathError{}
 		if errors.As(err, &pathErr) {
@@ -669,15 +678,15 @@ func (c *ChartReconciler) load(
 			if err := c.pull(ctx, chartRequest, namespace, archivePath); err != nil {
 				return nil, err
 			}
-			chart, err := loader.Load(archivePath.fullPath)
+			charter, err := loader.Load(archivePath.fullPath)
 			if err != nil {
 				return nil, err
 			}
-			return chart, nil
+			return charter.(*chart.Chart), nil
 		}
 		return nil, err
 	}
-	return chart, nil
+	return charter.(*chart.Chart), nil
 }
 
 func (c *ChartReconciler) pull(
@@ -687,17 +696,17 @@ func (c *ChartReconciler) pull(
 	archivePath archivePath,
 ) error {
 	helmConfig := ctx.Value(configKey{}).(*action.Configuration)
-	pull := action.NewPullWithOpts(action.WithConfig(helmConfig))
+	pull := action.NewPull(action.WithConfig(helmConfig))
 	pull.DestDir = archivePath.dir
 
 	httpClient := http.DefaultClient
 	httpClient.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: c.InsecureSkipTLSverify,
+			InsecureSkipVerify: c.InsecureSkipTLSVerify,
 		},
 	}
 	pull.PlainHTTP = c.PlainHTTP
-	pull.InsecureSkipTLSverify = c.InsecureSkipTLSverify
+	pull.InsecureSkipTLSVerify = c.InsecureSkipTLSVerify
 
 	var chartRef string
 	if registry.IsOCI(chartRequest.RepoURL) {

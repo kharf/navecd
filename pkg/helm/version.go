@@ -17,7 +17,7 @@ package helm
 import (
 	"strings"
 
-	"helm.sh/helm/v3/pkg/repo"
+	repo "helm.sh/helm/v4/pkg/repo/v1"
 )
 
 // Parses a Helm Chart version into two parts: version and digest.

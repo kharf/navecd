@@ -21,7 +21,7 @@ import (
 
 	"github.com/kharf/navecd/pkg/kube"
 	"gopkg.in/yaml.v3"
-	"helm.sh/helm/v3/pkg/postrender"
+	"helm.sh/helm/v4/pkg/postrenderer"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -85,7 +85,8 @@ func (p *Patches) Get(
 }
 
 type PostRenderer struct {
-	Patches *Patches
+	Patches   *Patches
+	JsonPaths []string
 }
 
 func (pr *PostRenderer) Run(
@@ -119,6 +120,11 @@ func (pr *PostRenderer) Run(
 
 		if patchedExtendedUnstr != nil {
 			mergeMaps(renderedUnstrObj, patchedExtendedUnstr.Object)
+			for _, jsonPath := range pr.JsonPaths {
+				if err := kube.RemoveIgnoredFields(jsonPath, renderedUnstrObj, *patchedExtendedUnstr.Metadata); err != nil {
+					return nil, err
+				}
+			}
 		}
 
 		if err := enc.Encode(renderedUnstrObj); err != nil {
@@ -129,7 +135,7 @@ func (pr *PostRenderer) Run(
 	return
 }
 
-var _ postrender.PostRenderer = (*PostRenderer)(nil)
+var _ postrenderer.PostRenderer = (*PostRenderer)(nil)
 
 func mergeMaps(dst map[string]any, src map[string]any) {
 	for srcKey, srcValue := range src {
