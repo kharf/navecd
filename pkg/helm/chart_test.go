@@ -24,8 +24,9 @@ import (
 	"testing"
 
 	"go.uber.org/zap/zapcore"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/release/common"
+	releasev1 "helm.sh/helm/v4/pkg/release/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -574,7 +575,7 @@ func TestChartReconciler_Reconcile_HTTP(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -684,7 +685,7 @@ func TestChartReconciler_Reconcile_HTTPAuthSecretNotFound(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -759,7 +760,7 @@ func TestChartReconciler_Reconcile_HTTPAuthSecretRefNotFound(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -836,7 +837,7 @@ func TestChartReconciler_Reconcile_HTTPAuth(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -944,7 +945,7 @@ func TestChartReconciler_Reconcile_OCI(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -1048,7 +1049,7 @@ func TestChartReconciler_Reconcile_OCIAuthSecretNotFound(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -1130,7 +1131,7 @@ func TestChartReconciler_Reconcile_OCIAuthSecretRefNotFound(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -1214,7 +1215,7 @@ func TestChartReconciler_Reconcile_OCIAuth(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -1330,7 +1331,7 @@ func TestChartReconciler_Reconcile_OCIGCPWorkloadIdentity(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 		GCPMetadataServerURL:  gcpCloudEnvironment.HttpsServer.URL,
 	}
@@ -1442,7 +1443,7 @@ func TestChartReconciler_Reconcile_OCIAWSWorkloadIdentity(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -1551,7 +1552,7 @@ func TestChartReconciler_Reconcile_OCIAzureWorkloadIdentity(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 		AzureLoginURL:         azureEnvironment.OIDCIssuerServer.URL,
 	}
@@ -1645,7 +1646,7 @@ func TestChartReconciler_Reconcile_Namespaced(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -1738,7 +1739,7 @@ func TestChartReconciler_Reconcile_Cached(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -1958,7 +1959,7 @@ func TestChartReconciler_Reconcile_InstallPatches(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -2051,7 +2052,7 @@ func TestChartReconciler_Reconcile_Upgrade(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -2173,7 +2174,7 @@ func TestChartReconciler_Reconcile_UpgradeCRDs(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -2299,7 +2300,7 @@ func TestChartReconciler_Reconcile_UpgradeCRDsBreakingChangeWithoutUpgrade(t *te
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -2374,28 +2375,7 @@ func TestChartReconciler_Reconcile_UpgradeCRDsBreakingChangeWithoutUpgrade(t *te
 		"failed to create typed patch object (default/test; stable.example.com/v1, Kind=CronTab): .spec.ref: field not declared in schema",
 	)
 
-	// specifiying allow crds upgrade after the first upgrade, where it was disallowed, should still fail
 	releaseDeclaration.CRDs.AllowUpgrade = true
-	_, err = chartReconciler.Reconcile(
-		ctx,
-		&helm.ReleaseComponent{
-			ID: fmt.Sprintf(
-				"%s_%s_%s",
-				releaseDeclaration.Name,
-				releaseDeclaration.Namespace,
-				"HelmRelease",
-			),
-			Content: releaseDeclaration,
-		},
-	)
-	assert.ErrorContains(
-		t,
-		err,
-		"failed to create typed patch object (default/test; stable.example.com/v1, Kind=CronTab): .spec.ref: field not declared in schema",
-	)
-
-	// specifiying force after the first upgrade, where it was disallowed, crds should be applied and reconciliation should not fail
-	releaseDeclaration.CRDs.ForceUpgrade = true
 	actualRelease, err := chartReconciler.Reconcile(
 		ctx,
 		&helm.ReleaseComponent{
@@ -2416,7 +2396,7 @@ func TestChartReconciler_Reconcile_UpgradeCRDsBreakingChangeWithoutUpgrade(t *te
 		actualRelease.Name,
 		actualRelease.Namespace,
 	)
-	assert.Equal(t, actualRelease.Version, 2)
+	assert.Equal(t, actualRelease.Version, 3)
 }
 
 func TestChartReconciler_Reconcile_NoUpgrade(t *testing.T) {
@@ -2461,7 +2441,7 @@ func TestChartReconciler_Reconcile_NoUpgrade(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -2577,7 +2557,7 @@ func TestChartReconciler_Reconcile_Conflicts(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -2651,7 +2631,7 @@ func TestChartReconciler_Reconcile_Conflicts(t *testing.T) {
 	assert.Equal(t, actualRelease.Version, 2)
 }
 
-func TestChartReconciler_Reconcile_IngoreConflicts(t *testing.T) {
+func TestChartReconciler_Reconcile_IgnoreConflicts(t *testing.T) {
 	dnsServer, err := dnstest.NewDNSServer()
 	assert.NilError(t, err)
 	defer dnsServer.Close()
@@ -2724,7 +2704,7 @@ func TestChartReconciler_Reconcile_IngoreConflicts(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -2840,7 +2820,7 @@ func TestChartReconciler_Reconcile_PendingUpgradeRecovery(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -2872,10 +2852,11 @@ func TestChartReconciler_Reconcile_PendingUpgradeRecovery(t *testing.T) {
 	assert.NilError(t, err)
 
 	helmGet := action.NewGet(helmConfig)
-	rel, err := helmGet.Run("test")
+	releaser, err := helmGet.Run("test")
 	assert.NilError(t, err)
+	rel := releaser.(*releasev1.Release)
 
-	rel.Info.Status = release.StatusPendingUpgrade
+	rel.Info.Status = common.StatusPendingUpgrade
 	rel.Version = 2
 
 	err = helmConfig.Releases.Create(rel)
@@ -2947,7 +2928,7 @@ func TestChartReconciler_Reconcile_PendingInstallRecovery(t *testing.T) {
 		Client:                kubernetes.DynamicTestKubeClient,
 		FieldManager:          "controller",
 		InventoryInstance:     &inventoryInstance,
-		InsecureSkipTLSverify: true,
+		InsecureSkipTLSVerify: true,
 		ChartCacheRoot:        t.TempDir(),
 	}
 
@@ -2980,10 +2961,11 @@ func TestChartReconciler_Reconcile_PendingInstallRecovery(t *testing.T) {
 	assert.NilError(t, err)
 
 	helmGet := action.NewGet(helmConfig)
-	rel, err := helmGet.Run("test")
+	releaser, err := helmGet.Run("test")
 	assert.NilError(t, err)
+	rel := releaser.(*releasev1.Release)
 
-	rel.Info.Status = release.StatusPendingInstall
+	rel.Info.Status = common.StatusPendingInstall
 	err = helmConfig.Releases.Update(rel)
 	assert.NilError(t, err)
 

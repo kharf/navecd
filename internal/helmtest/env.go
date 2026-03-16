@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -33,13 +32,12 @@ import (
 	"github.com/kharf/navecd/internal/ocitest"
 	"github.com/kharf/navecd/internal/txtar"
 	"github.com/kharf/navecd/pkg/cloud"
-	"github.com/kharf/navecd/pkg/helm"
 	"github.com/kharf/navecd/pkg/kube"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart"
-	helmKube "helm.sh/helm/v3/pkg/kube"
-	helmRegistry "helm.sh/helm/v3/pkg/registry"
-	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v4/pkg/action"
+	chart "helm.sh/helm/v4/pkg/chart/v2"
+	helmKube "helm.sh/helm/v4/pkg/kube"
+	helmRegistry "helm.sh/helm/v4/pkg/registry"
+	repo "helm.sh/helm/v4/pkg/repo/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
 )
@@ -1285,15 +1283,9 @@ func ConfigureHelm(cfg *rest.Config) (*action.Configuration, error) {
 		RestMapper: k8sClient.RESTMapper(),
 	}
 
-	err = helmCfg.Init(getter, "default", "secret", log.Printf)
+	err = helmCfg.Init(getter, "default", "secret")
 	if err != nil {
 		return nil, err
-	}
-
-	helmCfg.KubeClient = &helm.Client{
-		Client:        helmCfg.KubeClient.(*helmKube.Client),
-		DynamicClient: k8sClient,
-		FieldManager:  "controller",
 	}
 
 	return &helmCfg, nil

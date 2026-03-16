@@ -321,7 +321,7 @@ func TestCollector_Collect(t *testing.T) {
 				KubeConfig:            kubernetes.ControlPlane.Config,
 				Client:                kubernetes.DynamicTestKubeClient,
 				FieldManager:          "controller",
-				InsecureSkipTLSverify: true,
+				InsecureSkipTLSVerify: true,
 				InventoryInstance:     inventoryInstance,
 				Log:                   log,
 			}

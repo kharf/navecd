@@ -148,7 +148,7 @@ func (reconciler *Reconciler) Reconcile(
 		Client:                kubeDynamicClient,
 		FieldManager:          reconciler.FieldManager,
 		InventoryInstance:     inventoryInstance,
-		InsecureSkipTLSverify: reconciler.InsecureSkipTLSverify,
+		InsecureSkipTLSVerify: reconciler.InsecureSkipTLSverify,
 		PlainHTTP:             reconciler.PlainHTTP,
 		Log:                   log,
 		ChartCacheRoot:        reconciler.CacheDir,
