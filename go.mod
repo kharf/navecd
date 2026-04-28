@@ -17,7 +17,7 @@ require (
 	github.com/onsi/gomega v1.39.1
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/goleak v1.3.0
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	gotest.tools/v3 v3.5.2
 	helm.sh/helm/v4 v4.1.3
 	k8s.io/api v0.35.2
