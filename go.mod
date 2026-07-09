@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.56.1
 	github.com/foxcpp/go-mockdns v1.2.0
 	github.com/google/go-containerregistry v0.21.3
-	github.com/grafana/pyroscope-go/godeltaprof v0.1.9
+	github.com/grafana/pyroscope-go/godeltaprof v0.1.12
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	go.uber.org/automaxprocs v1.6.0
@@ -120,7 +120,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.18.4 // indirect
+	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
