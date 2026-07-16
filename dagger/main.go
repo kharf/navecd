@@ -82,7 +82,7 @@ func (n *Navecd) kubernetesTestEnv(
 var controllerGenDep = "sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1"
 
 // when changed, the renovate customManager has also to be updated.
-var cueDep = "cuelang.org/go/cmd/cue@v0.16.0"
+var cueDep = "cuelang.org/go/cmd/cue@v0.17.1"
 
 func (n *Navecd) GenApi(source *dagger.Directory) *dagger.File {
 	return n.buildEnv(source).
