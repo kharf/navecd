@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.12
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.12
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.56.1
-	github.com/foxcpp/go-mockdns v1.2.0
+	github.com/foxcpp/go-mockdns v1.3.0
 	github.com/google/go-containerregistry v0.21.3
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.9
 	github.com/onsi/ginkgo/v2 v2.28.1
