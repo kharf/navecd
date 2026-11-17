@@ -6,7 +6,9 @@
     "extends": [
         "config:best-practices"
     ],
-    "dependencyDashboard": true,
+    "dependencyDashboard": {
+        "enabled": true
+    },
     "semanticCommits": "enabled",
     "rebaseWhen": "auto",
     "rangeStrategy": "replace",
