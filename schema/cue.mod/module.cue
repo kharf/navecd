@@ -1,5 +1,5 @@
 module: "github.com/kharf/navecd/schema@v0"
 language: {
-	version: "v0.17.1"
+	version: "v0.18.0"
 }
 source: kind: "git"
